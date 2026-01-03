@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          libopenmpi-dev \
+          openmpi-bin
+
+    - name: Check compiler versions
+      run: |
+        g++ --version
+        mpicxx --version
+        mpirun --version
+
+    - name: Build v1 (Sequential)
+      run: make v1
+
+    - name: Build v2 (OpenMP)
+      run: make v2
+
+    - name: Build v3 (Hybrid MPI+OpenMP)
+      run: make v3
+
+    - name: Build v4 (Hypercube MPI+OpenMP)
+      run: make v4
+
+    - name: Build without AVX2 (portability check)
+      run: |
+        make v1_noavx
+        make v2_noavx
+
+    - name: Run unit tests
+      run: make test_unit
+
+    - name: Test v1 correctness (G4-G8)
+      run: |
+        echo "Testing G4..."
+        ./build/golomb_v1 4 | grep -q "Length: 6" && echo "G4 OK" || exit 1
+        echo "Testing G5..."
+        ./build/golomb_v1 5 | grep -q "Length: 11" && echo "G5 OK" || exit 1
+        echo "Testing G6..."
+        ./build/golomb_v1 6 | grep -q "Length: 17" && echo "G6 OK" || exit 1
+        echo "Testing G7..."
+        ./build/golomb_v1 7 | grep -q "Length: 25" && echo "G7 OK" || exit 1
+        echo "Testing G8..."
+        timeout 120 ./build/golomb_v1 8 | grep -q "Length: 34" && echo "G8 OK" || exit 1
+
+    - name: Test v2 correctness (OpenMP)
+      run: |
+        echo "Testing G7 with 2 threads..."
+        OMP_NUM_THREADS=2 ./build/golomb_v2 7 | grep -q "Length: 25" && echo "OK" || exit 1
+        echo "Testing G8 with 4 threads..."
+        OMP_NUM_THREADS=4 timeout 120 ./build/golomb_v2 8 | grep -q "Length: 34" && echo "OK" || exit 1
+
+    - name: Test v3 MPI correctness
+      run: |
+        echo "Testing G7 with 2 MPI processes..."
+        mpirun --oversubscribe -np 2 ./build/golomb_v3 7 --threads 2 | grep -q "Length: 25" && echo "OK" || exit 1
+        echo "Testing G8 with 4 MPI processes..."
+        timeout 180 mpirun --oversubscribe -np 4 ./build/golomb_v3 8 --threads 2 | grep -q "Length: 34" && echo "OK" || exit 1
+
+    - name: Test v4 MPI correctness
+      run: |
+        echo "Testing G7 with 2 MPI processes..."
+        mpirun --oversubscribe -np 2 ./build/golomb_v4 7 --threads 2 | grep -q "Length: 25" && echo "OK" || exit 1
+        echo "Testing G8 with 4 MPI processes..."
+        timeout 180 mpirun --oversubscribe -np 4 ./build/golomb_v4 8 --threads 2 | grep -q "Length: 34" && echo "OK" || exit 1
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build v1 (without AVX2 for ARM)
+      run: make v1_noavx
+
+    - name: Run unit tests
+      run: make test_unit
+
+    - name: Test v1 correctness (G4-G6)
+      run: |
+        ./build/golomb_v1_noavx 4 | grep -q "Length: 6" && echo "G4 OK" || exit 1
+        ./build/golomb_v1_noavx 5 | grep -q "Length: 11" && echo "G5 OK" || exit 1
+        ./build/golomb_v1_noavx 6 | grep -q "Length: 17" && echo "G6 OK" || exit 1
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install cppcheck
+      run: sudo apt-get install -y cppcheck
+
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=warning,style,performance \
+                 --suppress=missingIncludeSystem \
+                 --error-exitcode=0 \
+                 --inline-suppr \
+                 -I include \
+                 src/ tests/

@@ -14,6 +14,7 @@
 
 #include "golomb.hpp"
 #include "greedy.hpp"
+#include "knuth_estimator.hpp"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -21,6 +22,7 @@
 #include <algorithm>
 #include <cstring>
 #include <iomanip>
+#include <chrono>
 
 // Forward declarations
 void printStats(const SearchStats& stats, int order);
@@ -37,17 +39,33 @@ private:
     bool useSymmetry;
     bool verbose;
 
+    // Progress reporting
+    bool showProgress;
+    KnuthEstimator* estimator;
+    std::chrono::high_resolution_clock::time_point startTime;
+    uint64_t lastProgressUpdate;
+    static constexpr uint64_t PROGRESS_INTERVAL = 5000000;  // Update every 5M nodes
+
 public:
-    FinalSequentialSolver(int n, bool symmetry = true, bool verb = false)
+    FinalSequentialSolver(int n, bool symmetry = true, bool verb = false, bool progress = false)
         : order(n), markCount(1), nodesExplored(0), nodesPruned(0),
-          useSymmetry(symmetry), verbose(verb) {
+          useSymmetry(symmetry), verbose(verb), showProgress(progress),
+          estimator(nullptr), lastProgressUpdate(0) {
         marks[0] = 0;
         usedDiffs.reset();
         findGreedySolution();
     }
 
+    void setEstimator(KnuthEstimator* est) {
+        estimator = est;
+    }
+
     void solve() {
+        startTime = std::chrono::high_resolution_clock::now();
         branchAndBound(1);
+        if (showProgress) {
+            std::cout << "\r\033[K";  // Clear progress line
+        }
     }
 
     SearchStats getStats() const {
@@ -70,8 +88,31 @@ private:
         }
     }
 
+    void reportProgress() {
+        if (!showProgress || !estimator) return;
+
+        auto now = std::chrono::high_resolution_clock::now();
+        double elapsedMs = std::chrono::duration<double, std::milli>(now - startTime).count();
+
+        double progress = estimator->getProgress(nodesExplored);
+        std::string eta = estimator->formatETA(nodesExplored, elapsedMs);
+
+        std::cout << "\r\033[K"  // Clear line
+                  << "Progress: " << std::fixed << std::setprecision(1) << progress << "%"
+                  << " | Nodes: " << nodesExplored
+                  << " | Best: " << bestSolution.length
+                  << " | ETA: " << eta
+                  << std::flush;
+    }
+
     void branchAndBound(int depth) {
         nodesExplored++;
+
+        // Periodic progress update
+        if (showProgress && nodesExplored - lastProgressUpdate >= PROGRESS_INTERVAL) {
+            lastProgressUpdate = nodesExplored;
+            reportProgress();
+        }
 
         if (depth == order) {
             int length = marks[markCount - 1];
@@ -79,7 +120,8 @@ private:
                 std::vector<int> v(marks, marks + markCount);
                 bestSolution = GolombRuler(v);
                 if (verbose) {
-                    std::cout << "New best: " << bestSolution.toString()
+                    std::cout << "\r\033[K"  // Clear progress line first
+                              << "New best: " << bestSolution.toString()
                               << " (length " << length << ")" << '\n';
                 }
             }
@@ -174,10 +216,12 @@ void printUsage(const char* progName) {
     std::cout << "  --csv <file>    Append results to CSV file\n";
     std::cout << "  --no-symmetry   Disable symmetry breaking\n";
     std::cout << "  --verbose       Show progress during search\n";
+    std::cout << "  --progress      Show estimated progress with ETA (Knuth estimator)\n";
     std::cout << "  --benchmark     Run benchmarks for orders 4 to <order>\n";
     std::cout << "\nExamples:\n";
     std::cout << "  " << progName << " 9\n";
     std::cout << "  " << progName << " 10 --csv results.csv\n";
+    std::cout << "  " << progName << " 11 --progress\n";
     std::cout << "  " << progName << " 8 --benchmark --csv results.csv\n";
 }
 
@@ -197,6 +241,7 @@ int main(int argc, char* argv[]) {
     bool useSymmetry = true;
     bool verbose = false;
     bool benchmark = false;
+    bool showProgress = false;
     std::string csvFile;
 
     for (int i = 2; i < argc; ++i) {
@@ -207,6 +252,8 @@ int main(int argc, char* argv[]) {
             verbose = true;
         } else if (arg == "--benchmark") {
             benchmark = true;
+        } else if (arg == "--progress") {
+            showProgress = true;
         } else if (arg == "--csv" && i + 1 < argc) {
             csvFile = argv[++i];
         }
@@ -251,12 +298,25 @@ int main(int argc, char* argv[]) {
         // Single order solve
         std::cout << "Order: " << maxOrder;
         if (useSymmetry) std::cout << " (symmetry enabled)";
+        if (showProgress) std::cout << " (progress enabled)";
         std::cout << '\n';
+
+        // Calibrate Knuth estimator if progress is enabled
+        KnuthEstimator estimator;
+        if (showProgress) {
+            std::cout << "Calibrating progress estimator..." << std::flush;
+            int initialBound = computeGreedyBound(maxOrder);
+            estimator.calibrate(maxOrder, initialBound, 1000, 1000);
+            std::cout << " done (estimated " << estimator.getEstimatedSize() << " nodes)\n";
+        }
 
         Timer timer;
         timer.start();
 
-        FinalSequentialSolver solver(maxOrder, useSymmetry, verbose);
+        FinalSequentialSolver solver(maxOrder, useSymmetry, verbose, showProgress);
+        if (showProgress) {
+            solver.setEstimator(&estimator);
+        }
         solver.solve();
 
         SearchStats stats = solver.getStats();

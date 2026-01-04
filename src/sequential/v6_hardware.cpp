@@ -156,6 +156,23 @@ struct alignas(32) BitSet256 {
         words[2] = other.words[2];
         words[3] = other.words[3];
     }
+
+#ifdef USE_AVX2
+    /**
+     * AVX2-accelerated collision detection
+     * Checks if ANY of the bits in 'mask' are already set in this bitset
+     * Uses _mm256_and_si256 to check 256 bits in a single operation
+     * Returns true if collision detected (at least one bit is set in both)
+     */
+    inline bool hasCollisionAVX2(const BitSet256& mask) const {
+        __m256i used = _mm256_load_si256((__m256i*)words);
+        __m256i check = _mm256_load_si256((__m256i*)mask.words);
+        __m256i collision = _mm256_and_si256(used, check);
+
+        // _mm256_testz returns 1 if all bits are zero, 0 otherwise
+        return !_mm256_testz_si256(collision, collision);
+    }
+#endif
 };
 
 // ============================================================================
@@ -417,38 +434,59 @@ private:
     }
 
 #ifdef USE_AVX2
+    /**
+     * AVX2-optimized difference checking with vectorized collision detection
+     *
+     * Optimization strategy:
+     * 1. Calculate all differences using SIMD (8 at a time)
+     * 2. Build a mask bitset with all differences
+     * 3. Use _mm256_and_si256 to check all 256 bits in ONE operation
+     * 4. Only if no collision, copy differences to output array
+     *
+     * This reduces branch mispredictions and leverages full SIMD width
+     */
     inline bool checkDifferencesAVX2(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
         __m256i vpos = _mm256_set1_epi32(pos);
-        diffCount = 0;
 
+        // Phase 1: Calculate all differences and store them
+        alignas(32) int allDiffs[MAX_ORDER];
+        int totalDiffs = 0;
         int i = 0;
 
         // Process 8 marks at a time with AVX2
         for (; i + 8 <= state.markCount; i += 8) {
             __m256i vmarks = _mm256_loadu_si256((__m256i*)&state.marks[i]);
             __m256i vdiffs = _mm256_sub_epi32(vpos, vmarks);
-
-            // Store differences to check against bitset
-            alignas(32) int diffs[8];
-            _mm256_store_si256((__m256i*)diffs, vdiffs);
-
-            // Check each difference
-            for (int j = 0; j < 8; ++j) {
-                int d = diffs[j];
-                if (d >= MAX_LENGTH || state.usedDiffs.test(d)) {
-                    return false;
-                }
-                tempDiffs[diffCount++] = d;
-            }
+            _mm256_storeu_si256((__m256i*)&allDiffs[totalDiffs], vdiffs);
+            totalDiffs += 8;
         }
 
         // Handle remaining marks (scalar)
         for (; i < state.markCount; ++i) {
-            int diff = pos - state.marks[i];
-            if (diff >= MAX_LENGTH || state.usedDiffs.test(diff)) {
-                return false;
+            allDiffs[totalDiffs++] = pos - state.marks[i];
+        }
+
+        // Phase 2: Build collision mask and check bounds
+        BitSet256 checkMask;
+        checkMask.reset();
+
+        for (int j = 0; j < totalDiffs; ++j) {
+            int d = allDiffs[j];
+            if (d >= MAX_LENGTH) {
+                return false;  // Out of bounds
             }
-            tempDiffs[diffCount++] = diff;
+            checkMask.set(d);
+        }
+
+        // Phase 3: Vectorized collision detection (256 bits in ONE operation!)
+        if (state.usedDiffs.hasCollisionAVX2(checkMask)) {
+            return false;  // At least one difference already used
+        }
+
+        // Phase 4: No collision - copy differences to output
+        diffCount = totalDiffs;
+        for (int j = 0; j < totalDiffs; ++j) {
+            tempDiffs[j] = allDiffs[j];
         }
 
         return true;

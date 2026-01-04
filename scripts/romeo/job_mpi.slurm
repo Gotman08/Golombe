@@ -11,8 +11,16 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=%MEMORY%G
 #SBATCH --constraint=%CONSTRAINT%
+#SBATCH --cpu-bind=cores
+#SBATCH --distribution=block:block
 %PARTITION_LINE%
 %ACCOUNT_LINE%
+
+# =============================================================================
+# CPU Affinity Settings (Performance Optimization)
+# =============================================================================
+export OMP_PLACES=cores
+export OMP_PROC_BIND=close
 
 # Load Romeo 2025 environment
 source $HOME/golomb/setup_env.sh

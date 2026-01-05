@@ -32,6 +32,7 @@ COMMON_HDRS = $(COMMON_DIR)/golomb.hpp $(COMMON_DIR)/greedy.hpp $(COMMON_DIR)/bi
 V1 = golomb_v1
 V2 = golomb_v2
 V3 = golomb_v3
+V4 = golomb_v4
 
 # Default target
 all: v1 v2
@@ -66,12 +67,21 @@ v3: $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
 v3_noavx: $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
 	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V3)_noavx $< $(COMMON_SRCS)
 
+# v4: Pure Hypercube MPI+OpenMP (decentralized, all ranks equal)
+v4: $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4) $< $(COMMON_SRCS)
+
+# v4 without AVX2
+v4_noavx: $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4)_noavx $< $(COMMON_SRCS)
+
 # ===== BUILD ALL =====
 
 sequential: v1
 openmp: v2
-hybrid: v3
-parallel: v3
+hybrid: v3 v4
+parallel: v3 v4
+hypercube: v4
 
 # ===== TEST TARGETS =====
 
@@ -85,6 +95,10 @@ test: v1 v2
 test_mpi: v3
 	@echo "=== Testing v3 (Hybrid MPI+OpenMP) ==="
 	OMP_NUM_THREADS=2 mpirun --oversubscribe -np 2 ./$(BUILD_DIR)/$(V3) 8 --threads 2
+
+test_v4: v4
+	@echo "=== Testing v4 (Pure Hypercube MPI+OpenMP) ==="
+	OMP_NUM_THREADS=2 mpirun --oversubscribe -np 4 ./$(BUILD_DIR)/$(V4) 8 --threads 2
 
 # ===== BENCHMARK TARGETS =====
 
@@ -115,6 +129,15 @@ benchmark_v3: v3
 		done; \
 	done
 
+benchmark_v4: v4
+	@echo "=== v4 Pure Hypercube Benchmark ==="
+	@for np in 2 4 8; do \
+		for t in 4 8; do \
+			echo "--- $$np ranks x $$t threads (hypercube) ---"; \
+			OMP_NUM_THREADS=$$t mpirun --oversubscribe -np $$np ./$(BUILD_DIR)/$(V4) 12 --threads $$t 2>&1 | grep -E "Time|Length"; \
+		done; \
+	done
+
 # ===== CLEAN =====
 
 clean:
@@ -130,19 +153,23 @@ help:
 	@echo "Main targets:"
 	@echo "  v1         - Sequential version (single-threaded + AVX2)"
 	@echo "  v2         - OpenMP version (multi-threaded + AVX2)"
-	@echo "  v3         - Hybrid MPI+OpenMP version (distributed + multi-threaded)"
+	@echo "  v3         - Hybrid MPI+OpenMP version (master/worker)"
+	@echo "  v4         - Pure Hypercube MPI+OpenMP (all ranks equal, O(log P) comm)"
 	@echo ""
 	@echo "Variants without AVX2:"
 	@echo "  v1_noavx   - Sequential without AVX2"
 	@echo "  v2_noavx   - OpenMP without AVX2"
 	@echo "  v3_noavx   - Hybrid without AVX2"
+	@echo "  v4_noavx   - Hypercube without AVX2"
 	@echo ""
 	@echo "Test and benchmark:"
 	@echo "  test       - Quick test of v1 and v2"
-	@echo "  test_mpi   - Quick test of v3 (MPI)"
+	@echo "  test_mpi   - Quick test of v3 (MPI master/worker)"
+	@echo "  test_v4    - Quick test of v4 (MPI hypercube)"
 	@echo "  benchmark  - Run benchmarks"
 	@echo "  benchmark_v2 - Benchmark v2 with various thread counts"
 	@echo "  benchmark_v3 - Benchmark v3 with various configurations"
+	@echo "  benchmark_v4 - Benchmark v4 with various hypercube sizes"
 	@echo ""
 	@echo "  clean      - Remove all built files"
 	@echo ""
@@ -150,8 +177,9 @@ help:
 	@echo "  make v1 && ./build/golomb_v1 12"
 	@echo "  make v2 && OMP_NUM_THREADS=32 ./build/golomb_v2 12"
 	@echo "  make v3 && OMP_NUM_THREADS=8 mpirun -np 4 ./build/golomb_v3 14 --threads 8"
+	@echo "  make v4 && OMP_NUM_THREADS=8 mpirun -np 8 ./build/golomb_v4 14 --threads 8"
 
-.PHONY: all v1 v2 v3 v1_noavx v2_noavx v3_noavx
-.PHONY: sequential openmp hybrid parallel
-.PHONY: test test_mpi benchmark benchmark_v1 benchmark_v2 benchmark_v3
+.PHONY: all v1 v2 v3 v4 v1_noavx v2_noavx v3_noavx v4_noavx
+.PHONY: sequential openmp hybrid parallel hypercube
+.PHONY: test test_mpi test_v4 benchmark benchmark_v1 benchmark_v2 benchmark_v3 benchmark_v4
 .PHONY: clean help

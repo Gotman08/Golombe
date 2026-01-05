@@ -232,6 +232,17 @@ private:
 
         int startDepth = subtree.markCount;
 
+        // Check for MPI bound updates at start of each subtree
+        #pragma omp critical(mpi_bound_check)
+        {
+            boundManager->checkAndForwardBounds();
+            int mgrBound = boundManager->getBound();
+            int current = sharedBound->load(std::memory_order_relaxed);
+            while (mgrBound < current) {
+                if (sharedBound->compare_exchange_weak(current, mgrBound)) break;
+            }
+        }
+
         // Generate first level tasks for better parallelism
         int lastMark = state.marks[state.markCount - 1];
         int currentBest = sharedBound->load(std::memory_order_relaxed);
@@ -286,12 +297,12 @@ private:
         static thread_local int checkCounter = 0;
         static thread_local int mpiCheckCounter = 0;
 
-        if (++checkCounter >= 16384) {
+        if (++checkCounter >= 4096) {
             cachedBound = sharedBound->load(std::memory_order_relaxed);
             checkCounter = 0;
 
-            // Periodic MPI bound check (less frequent)
-            if (++mpiCheckCounter >= 4) {
+            // Periodic MPI bound check
+            if (++mpiCheckCounter >= 2) {
                 mpiCheckCounter = 0;
                 #pragma omp critical(mpi_bound_check)
                 {
@@ -628,17 +639,41 @@ int main(int argc, char* argv[]) {
     LocalSolver solver(order, &sharedBound, &boundManager, rank, useSIMD);
     solver.solveSubtrees(mySubtrees);
 
-    // Step 6: Final synchronization - gather best solution from all ranks
-    MPI_Barrier(MPI_COMM_WORLD);
+    // Step 6: Drain pending MPI messages and synchronize bounds
+    // CRITICAL: Ranks that finish early must receive late bound updates
+    for (int iter = 0; iter < 10; ++iter) {
+        boundManager.checkAndForwardBounds();
 
-    // Use MPI_Allreduce to find the minimum length and which rank has it
+        // Update local bound from manager
+        int mgrBound = boundManager.getBound();
+        int current = sharedBound.load(std::memory_order_relaxed);
+        while (mgrBound < current) {
+            if (sharedBound.compare_exchange_weak(current, mgrBound)) break;
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+
+    // Step 7: Global bound sync - ensures all ranks know the true minimum
+    int localFinalBound = sharedBound.load(std::memory_order_relaxed);
+    int globalFinalBound;
+    MPI_Allreduce(&localFinalBound, &globalFinalBound, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+    // Step 8: Gather best solution from the rank that has it
     struct {
         int length;
         int rank;
     } localResult, globalResult;
 
-    localResult.length = solver.getBestSolution().length;
-    localResult.rank = rank;
+    // Only report our solution if it matches the global best
+    const auto& localBest = solver.getBestSolution();
+    if (localBest.length == globalFinalBound) {
+        localResult.length = localBest.length;
+        localResult.rank = rank;
+    } else {
+        localResult.length = INT_MAX;  // We don't have the best
+        localResult.rank = rank;
+    }
 
     MPI_Allreduce(&localResult, &globalResult, 1, MPI_2INT, MPI_MINLOC, MPI_COMM_WORLD);
 

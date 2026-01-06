@@ -27,7 +27,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
 #SBATCH --constraint=rome
-#SBATCH --cpu-bind=cores
+# CPU affinity is handled by srun, not sbatch
 #SBATCH --distribution=block:block
 # Uncomment for specific partition/account:
 # #SBATCH --partition=cpu

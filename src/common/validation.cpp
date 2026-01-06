@@ -1,4 +1,13 @@
-#include "golomb.hpp"
+/**
+ * @file validation.cpp
+ * @brief Golomb ruler validation functions
+ *
+ * Golomb Ruler Solver - High Performance Computing Implementation
+ * Copyright (c) 2025 Nicolas Marano
+ * Licensed under the MIT License. See LICENSE file for details.
+ */
+
+#include "golomb/golomb.hpp"
 #include <set>
 #include <iostream>
 #include <sstream>

@@ -1,5 +1,10 @@
 /**
- * Golomb Ruler Solver - Version 1: Sequential
+ * @file v1_sequential.cpp
+ * @brief Sequential Golomb Ruler Solver
+ *
+ * Golomb Ruler Solver - High Performance Computing Implementation
+ * Copyright (c) 2025 Nicolas Marano
+ * Licensed under the MIT License. See LICENSE file for details.
  *
  * Pure sequential implementation with optimizations:
  * - Branch and Bound with greedy initial bound
@@ -16,9 +21,9 @@
  *     --verbose       Show progress
  */
 
-#include "common/golomb.hpp"
-#include "common/greedy.hpp"
-#include "common/bitset256.hpp"
+#include "golomb/golomb.hpp"
+#include "golomb/greedy.hpp"
+#include "golomb/bitset256.hpp"
 #include <iostream>
 #include <fstream>
 #include <vector>

@@ -1,5 +1,10 @@
 /**
- * Golomb Ruler Solver - Version 2: OpenMP
+ * @file v2_openmp.cpp
+ * @brief OpenMP Golomb Ruler Solver
+ *
+ * Golomb Ruler Solver - High Performance Computing Implementation
+ * Copyright (c) 2025 Nicolas Marano
+ * Licensed under the MIT License. See LICENSE file for details.
  *
  * OpenMP parallelized implementation with optimizations:
  * - Task-based parallelism at shallow tree depths
@@ -20,9 +25,9 @@
  *     --verbose       Show progress
  */
 
-#include "common/golomb.hpp"
-#include "common/greedy.hpp"
-#include "common/bitset256.hpp"
+#include "golomb/golomb.hpp"
+#include "golomb/greedy.hpp"
+#include "golomb/bitset256.hpp"
 #include <iostream>
 #include <fstream>
 #include <vector>

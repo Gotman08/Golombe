@@ -20,13 +20,14 @@ AVX_FLAGS = -mavx2 -mfma -DUSE_AVX2
 
 # Directories
 SRC_DIR = src
+INCLUDE_DIR = include
 COMMON_DIR = $(SRC_DIR)/common
 BUILD_DIR = build
 RESULTS_DIR = results
 
 # Common source files
 COMMON_SRCS = $(COMMON_DIR)/validation.cpp $(COMMON_DIR)/timing.cpp
-COMMON_HDRS = $(COMMON_DIR)/golomb.hpp $(COMMON_DIR)/greedy.hpp $(COMMON_DIR)/bitset256.hpp
+COMMON_HDRS = $(INCLUDE_DIR)/golomb/golomb.hpp $(INCLUDE_DIR)/golomb/greedy.hpp $(INCLUDE_DIR)/golomb/bitset256.hpp
 
 # Executables
 V1 = golomb_v1
@@ -45,35 +46,35 @@ $(BUILD_DIR):
 
 # v1: Sequential (single-threaded, with optional AVX2)
 v1: $(SRC_DIR)/v1_sequential.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(AVX_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V1) $< $(COMMON_SRCS)
+	$(CXX) $(CXXFLAGS) $(AVX_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V1) $< $(COMMON_SRCS)
 
 # v1 without AVX2 (for older CPUs)
 v1_noavx: $(SRC_DIR)/v1_sequential.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V1)_noavx $< $(COMMON_SRCS)
+	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V1)_noavx $< $(COMMON_SRCS)
 
 # v2: OpenMP (multi-threaded with AVX2)
 v2: $(SRC_DIR)/v2_openmp.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V2) $< $(COMMON_SRCS)
+	$(CXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V2) $< $(COMMON_SRCS)
 
 # v2 without AVX2
 v2_noavx: $(SRC_DIR)/v2_openmp.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V2)_noavx $< $(COMMON_SRCS)
+	$(CXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V2)_noavx $< $(COMMON_SRCS)
 
 # v3: Hybrid MPI+OpenMP (distributed + multi-threaded with AVX2)
 v3: $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V3) $< $(COMMON_SRCS)
+	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V3) $< $(COMMON_SRCS)
 
 # v3 without AVX2
 v3_noavx: $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V3)_noavx $< $(COMMON_SRCS)
+	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V3)_noavx $< $(COMMON_SRCS)
 
 # v4: Pure Hypercube MPI+OpenMP (decentralized, all ranks equal)
 v4: $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4) $< $(COMMON_SRCS)
+	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4) $< $(COMMON_SRCS)
 
 # v4 without AVX2
 v4_noavx: $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4)_noavx $< $(COMMON_SRCS)
+	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4)_noavx $< $(COMMON_SRCS)
 
 # ===== BUILD ALL =====
 

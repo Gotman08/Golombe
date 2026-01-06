@@ -1,5 +1,10 @@
 /**
- * Golomb Ruler Solver - Version 3: Hybrid MPI+OpenMP
+ * @file v3_hybrid.cpp
+ * @brief Hybrid MPI+OpenMP Golomb Ruler Solver (Master/Worker)
+ *
+ * Golomb Ruler Solver - High Performance Computing Implementation
+ * Copyright (c) 2025 Nicolas Marano
+ * Licensed under the MIT License. See LICENSE file for details.
  *
  * Combines MPI for inter-node distribution with OpenMP for intra-node parallelism:
  * - Master/worker MPI distribution with dynamic load balancing
@@ -15,9 +20,9 @@
 
 #include <mpi.h>
 #include <omp.h>
-#include "common/golomb.hpp"
-#include "common/greedy.hpp"
-#include "common/bitset256.hpp"
+#include "golomb/golomb.hpp"
+#include "golomb/greedy.hpp"
+#include "golomb/bitset256.hpp"
 #include <iostream>
 #include <vector>
 #include <cstdlib>

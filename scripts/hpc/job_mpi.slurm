@@ -2,19 +2,18 @@
 # =============================================================================
 # SLURM Job Script - MPI Parallel Golomb Solver (Romeo 2025)
 # =============================================================================
-#SBATCH --job-name=golomb_mpi_G10_v3_p8
-#SBATCH --output=results/romeo/mpi_G10_v3_p8_%j.out
-#SBATCH --error=results/romeo/mpi_G10_v3_p8_%j.err
-#SBATCH --time=01:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=8
+#SBATCH --job-name=golomb_mpi_G%ORDER%_v%VERSION%_p%PROCS%
+#SBATCH --output=results/romeo/mpi_G%ORDER%_v%VERSION%_p%PROCS%_%j.out
+#SBATCH --error=results/romeo/mpi_G%ORDER%_v%VERSION%_p%PROCS%_%j.err
+#SBATCH --time=%TIME_LIMIT%
+#SBATCH --nodes=%NODES%
+#SBATCH --ntasks=%PROCS%
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=8G
-#SBATCH --constraint=x64cpu
-#SBATCH --partition=instant
-#SBATCH --account=r250127
-# CPU affinity is handled by srun, not sbatch
+#SBATCH --mem-per-cpu=%MEMORY%G
+#SBATCH --constraint=%CONSTRAINT%
 #SBATCH --distribution=block:block
+%PARTITION_LINE%
+%ACCOUNT_LINE%
 
 # =============================================================================
 # CPU Affinity Settings (Performance Optimization)
@@ -39,16 +38,16 @@ cp -r $HOME/golomb/scripts "${SCRATCH_DIR}/"
 # Job info
 echo "=============================================="
 echo "  Golomb Ruler Solver - MPI Benchmark"
-echo "  Romeo 2025 - Architecture: x64cpu"
+echo "  Romeo 2025 - Architecture: %CONSTRAINT%"
 echo "=============================================="
 echo "Job ID: $SLURM_JOB_ID"
 echo "Nodes: $SLURM_NODELIST"
 echo "Scratch: ${SCRATCH_DIR}"
 echo "Start time: $(date)"
-echo "Order: 10"
-echo "MPI Version: v3"
-echo "Processes: 8"
-echo "Nodes requested: 1"
+echo "Order: %ORDER%"
+echo "MPI Version: v%VERSION%"
+echo "Processes: %PROCS%"
+echo "Nodes requested: %NODES%"
 echo "=============================================="
 echo ""
 
@@ -56,13 +55,13 @@ echo ""
 mkdir -p results/romeo
 
 # Define file paths
-RESULT_FILE="results/romeo/mpi_G10_v3_p8.csv"
-OUTPUT_FILE="results/romeo/mpi_G10_v3_p8_raw.txt"
+RESULT_FILE="results/romeo/mpi_G%ORDER%_v%VERSION%_p%PROCS%.csv"
+OUTPUT_FILE="results/romeo/mpi_G%ORDER%_v%VERSION%_p%PROCS%_raw.txt"
 
 # Determine optimal prefix depth based on order and process count
-if [ 10 -le 8 ]; then
+if [ %ORDER% -le 8 ]; then
     DEPTH=3
-elif [ 10 -le 10 ]; then
+elif [ %ORDER% -le 10 ]; then
     DEPTH=4
 else
     DEPTH=5
@@ -79,42 +78,42 @@ echo ""
 # MPI v3: Optimized - args: <order> [--depth N] [--csv FILE]
 # =============================================================================
 
-case 3 in
+case %VERSION% in
     3)
         # MPI v3: Has --depth and --csv flags
-        echo "Running: mpirun -np 8 ./build/golomb_mpi_v3 10 --depth $DEPTH"
-        mpirun -np 8 ./build/golomb_mpi_v3 10 --depth $DEPTH > "${OUTPUT_FILE}" 2>&1
+        echo "Running: mpirun -np %PROCS% ./build/golomb_mpi_v3 %ORDER% --depth $DEPTH"
+        mpirun -np %PROCS% ./build/golomb_mpi_v3 %ORDER% --depth $DEPTH > "${OUTPUT_FILE}" 2>&1
 
         # Parse output to CSV
         source scripts/romeo/parse_output.sh
         write_mpi_header > "${RESULT_FILE}"
-        parse_mpi "${OUTPUT_FILE}" 3 10 8 >> "${RESULT_FILE}"
+        parse_mpi "${OUTPUT_FILE}" %VERSION% %ORDER% %PROCS% >> "${RESULT_FILE}"
         ;;
 
     2)
         # MPI v2: Hypercube topology - positional args only
-        echo "Running: mpirun -np 8 ./build/golomb_mpi_v2 10 $DEPTH"
-        mpirun -np 8 ./build/golomb_mpi_v2 10 $DEPTH > "${OUTPUT_FILE}" 2>&1
+        echo "Running: mpirun -np %PROCS% ./build/golomb_mpi_v2 %ORDER% $DEPTH"
+        mpirun -np %PROCS% ./build/golomb_mpi_v2 %ORDER% $DEPTH > "${OUTPUT_FILE}" 2>&1
 
         # Parse output to CSV
         source scripts/romeo/parse_output.sh
         write_mpi_header > "${RESULT_FILE}"
-        parse_mpi "${OUTPUT_FILE}" 3 10 8 >> "${RESULT_FILE}"
+        parse_mpi "${OUTPUT_FILE}" %VERSION% %ORDER% %PROCS% >> "${RESULT_FILE}"
         ;;
 
     1)
         # MPI v1: Basic master/worker - positional args only
-        echo "Running: mpirun -np 8 ./build/golomb_mpi_v1 10 $DEPTH"
-        mpirun -np 8 ./build/golomb_mpi_v1 10 $DEPTH > "${OUTPUT_FILE}" 2>&1
+        echo "Running: mpirun -np %PROCS% ./build/golomb_mpi_v1 %ORDER% $DEPTH"
+        mpirun -np %PROCS% ./build/golomb_mpi_v1 %ORDER% $DEPTH > "${OUTPUT_FILE}" 2>&1
 
         # Parse output to CSV
         source scripts/romeo/parse_output.sh
         write_mpi_header > "${RESULT_FILE}"
-        parse_mpi "${OUTPUT_FILE}" 3 10 8 >> "${RESULT_FILE}"
+        parse_mpi "${OUTPUT_FILE}" %VERSION% %ORDER% %PROCS% >> "${RESULT_FILE}"
         ;;
 
     *)
-        echo "ERROR: Unknown MPI version 3"
+        echo "ERROR: Unknown MPI version %VERSION%"
         exit 1
         ;;
 esac

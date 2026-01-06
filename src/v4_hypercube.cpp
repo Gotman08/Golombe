@@ -1,5 +1,10 @@
 /**
- * Golomb Ruler Solver - Version 4: Pure Hypercube MPI + OpenMP
+ * @file v4_hypercube.cpp
+ * @brief Pure Hypercube MPI+OpenMP Golomb Ruler Solver
+ *
+ * Golomb Ruler Solver - High Performance Computing Implementation
+ * Copyright (c) 2025 Nicolas Marano
+ * Licensed under the MIT License. See LICENSE file for details.
  *
  * Decentralized architecture where all ranks are equal:
  * - No master/worker bottleneck - each rank computes its own subtrees
@@ -22,9 +27,9 @@
 
 #include <mpi.h>
 #include <omp.h>
-#include "common/golomb.hpp"
-#include "common/greedy.hpp"
-#include "common/bitset256.hpp"
+#include "golomb/golomb.hpp"
+#include "golomb/greedy.hpp"
+#include "golomb/bitset256.hpp"
 #include <iostream>
 #include <vector>
 #include <cstdlib>

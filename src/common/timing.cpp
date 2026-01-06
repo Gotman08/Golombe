@@ -1,4 +1,13 @@
-#include "golomb.hpp"
+/**
+ * @file timing.cpp
+ * @brief Performance timing and CSV export utilities
+ *
+ * Golomb Ruler Solver - High Performance Computing Implementation
+ * Copyright (c) 2025 Nicolas Marano
+ * Licensed under the MIT License. See LICENSE file for details.
+ */
+
+#include "golomb/golomb.hpp"
 #include <chrono>
 #include <fstream>
 #include <iostream>

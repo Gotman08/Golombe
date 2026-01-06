@@ -1,5 +1,10 @@
 /**
- * Golomb Ruler Solver - Correctness Tests
+ * @file test_correctness.cpp
+ * @brief Unit tests for Golomb Ruler Solver
+ *
+ * Golomb Ruler Solver - High Performance Computing Implementation
+ * Copyright (c) 2025 Nicolas Marano
+ * Licensed under the MIT License. See LICENSE file for details.
  *
  * Unit tests to validate:
  * - Golomb ruler validation functions
@@ -7,7 +12,7 @@
  * - Edge cases and error handling
  */
 
-#include "../src/common/golomb.hpp"
+#include "golomb/golomb.hpp"
 #include <iostream>
 #include <cassert>
 #include <vector>

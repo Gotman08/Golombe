@@ -200,7 +200,8 @@ help:
 	@echo "  benchmark_v3   - Benchmark v3 with various configurations"
 	@echo "  benchmark_v4   - Benchmark v4 with various hypercube sizes"
 	@echo ""
-	@echo "Romeo HPC targets (requires SSH key configured):"
+	@echo "Romeo HPC targets:"
+	@echo "  romeo-setup    - First-time setup: copy SSH key to Romeo"
 	@echo "  romeo          - Full workflow: deploy + submit all benchmarks"
 	@echo "  romeo-deploy   - Deploy code to Romeo and compile"
 	@echo "  romeo-bench    - Submit all benchmarks (~200 jobs)"
@@ -210,8 +211,8 @@ help:
 	@echo "  romeo-wait     - Wait for jobs to complete, then fetch"
 	@echo ""
 	@echo "  Arguments (defaults: ROMEO_USER=nimarano, ROMEO_HOST=romeo1):"
+	@echo "    make romeo-setup ROMEO_USER=dupont   # Setup for another user"
 	@echo "    make romeo ROMEO_USER=dupont"
-	@echo "    make romeo-status ROMEO_USER=dupont ROMEO_HOST=romeo2"
 	@echo ""
 	@echo "  clean      - Remove all built files"
 	@echo ""
@@ -222,6 +223,7 @@ help:
 	@echo "  make v4 && OMP_NUM_THREADS=8 mpirun -np 8 ./build/golomb_v4 14 --threads 8"
 	@echo ""
 	@echo "Romeo workflow:"
+	@echo "  make romeo-setup                 # First time only (copies SSH key)"
 	@echo "  make romeo && make romeo-wait    # Deploy, run, wait, fetch"
 
 # ===== ROMEO HPC TARGETS =====
@@ -230,6 +232,23 @@ help:
 ROMEO_HOST ?= romeo1
 ROMEO_USER ?= nimarano
 ROMEO_DIR ?= ~/golomb
+ROMEO_FULL_HOST ?= $(ROMEO_HOST).univ-reims.fr
+
+# First-time setup: generate SSH key if needed and copy to Romeo
+romeo-setup:
+	@echo "=== Romeo SSH Setup ==="
+	@if [ ! -f ~/.ssh/id_rsa ] && [ ! -f ~/.ssh/id_ed25519 ]; then \
+		echo "No SSH key found, generating one..."; \
+		ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "$(ROMEO_USER)@romeo"; \
+	fi
+	@echo "Copying SSH key to Romeo (you'll need to enter your password once)..."
+	@ssh-copy-id -o StrictHostKeyChecking=accept-new $(ROMEO_USER)@$(ROMEO_FULL_HOST) || \
+		(echo "If ssh-copy-id failed, try: cat ~/.ssh/id_ed25519.pub | ssh $(ROMEO_USER)@$(ROMEO_FULL_HOST) 'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys'")
+	@echo ""
+	@echo "Testing connection..."
+	@ssh -o BatchMode=yes $(ROMEO_USER)@$(ROMEO_FULL_HOST) "echo 'SSH OK! Connected as $$(whoami) on $$(hostname)'"
+	@echo ""
+	@echo "Setup complete! You can now use: make romeo"
 
 # Deploy code to Romeo and compile
 romeo-deploy:
@@ -273,5 +292,5 @@ romeo: romeo-deploy romeo-bench
 .PHONY: sequential openmp hybrid parallel hypercube
 .PHONY: test test_unit test_openmp_unit test_mpi_unit test_mpi test_v4 test_all
 .PHONY: benchmark benchmark_v1 benchmark_v2 benchmark_v3 benchmark_v4
-.PHONY: romeo romeo-deploy romeo-bench romeo-bench-quick romeo-status romeo-fetch romeo-wait
+.PHONY: romeo romeo-setup romeo-deploy romeo-bench romeo-bench-quick romeo-status romeo-fetch romeo-wait
 .PHONY: clean help

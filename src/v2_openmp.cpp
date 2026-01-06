@@ -247,8 +247,10 @@ private:
         int maxPos = currentBest - 1;
 
         for (int pos2 = pos1 + 1; pos2 <= maxPos; ++pos2) {
+            // Pruning amélioré: distance minimale triangulaire
             int remainingMarks = order - 3;
-            if (pos2 + remainingMarks >= currentBest) {
+            int minIncrement = remainingMarks * (remainingMarks + 1) / 2;
+            if (pos2 + minIncrement >= currentBest) {
                 parentState.localNodesPruned++;
                 continue;
             }
@@ -308,8 +310,11 @@ private:
         int maxPos = currentBest - 1;
 
         for (int pos = lastMark + 1; pos <= maxPos; ++pos) {
+            // Pruning amélioré: distance minimale = somme triangulaire
+            // Les marques restantes doivent avoir des différences uniques (1,2,3,...)
             int remainingMarks = order - depth - 1;
-            if (pos + remainingMarks >= currentBest) {
+            int minIncrement = remainingMarks * (remainingMarks + 1) / 2;
+            if (pos + minIncrement >= currentBest) {
                 state.localNodesPruned++;
                 continue;
             }

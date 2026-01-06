@@ -126,7 +126,9 @@ struct alignas(64) ThreadState {
     int markCount;
     int localNodesExplored;
     int localNodesPruned;
-    char padding[64 - (sizeof(int) * 2) % 64];
+    int cachedBound;      // Cached global bound to reduce atomic contention
+    int checkCounter;     // Counter for bound refresh interval
+    char padding[64 - (sizeof(int) * 4) % 64];
 };
 
 // ============================================================================
@@ -223,6 +225,8 @@ private:
         state.usedDiffs.reset();
         state.localNodesExplored = 0;
         state.localNodesPruned = 0;
+        state.cachedBound = globalBestLength.load(std::memory_order_relaxed);
+        state.checkCounter = 0;
     }
 
     void findGreedySolution() {
@@ -265,6 +269,8 @@ private:
                 state.usedDiffs.copyFrom(parentState.usedDiffs);
                 state.localNodesExplored = 0;
                 state.localNodesPruned = 0;
+                state.cachedBound = globalBestLength.load(std::memory_order_relaxed);
+                state.checkCounter = 0;
 
                 state.marks[state.markCount++] = pos2;
                 state.usedDiffs.set(diff1);
@@ -284,23 +290,21 @@ private:
         state.localNodesExplored++;
 
         // Bound caching: refresh every 16K nodes to reduce atomic contention
-        static thread_local int cachedBound = INT_MAX;
-        static thread_local int checkCounter = 0;
-        if (++checkCounter >= 16384) {
-            cachedBound = globalBestLength.load(std::memory_order_relaxed);
-            checkCounter = 0;
+        if (++state.checkCounter >= 16384) {
+            state.cachedBound = globalBestLength.load(std::memory_order_relaxed);
+            state.checkCounter = 0;
         }
 
         // Terminal: found complete solution
         if (depth == order) [[unlikely]] {
             int length = state.marks[state.markCount - 1];
             updateGlobalBest(length, state);
-            cachedBound = globalBestLength.load(std::memory_order_relaxed);
+            state.cachedBound = globalBestLength.load(std::memory_order_relaxed);
             return;
         }
 
         int lastMark = state.marks[state.markCount - 1];
-        int currentBest = cachedBound;
+        int currentBest = state.cachedBound;
         int maxPos = currentBest - 1;
 
         for (int pos = lastMark + 1; pos <= maxPos; ++pos) {
@@ -341,7 +345,7 @@ private:
                     state.usedDiffs.clear(tempDiffs[i]);
                 }
 
-                currentBest = cachedBound;
+                currentBest = state.cachedBound;
                 maxPos = currentBest - 1;
             }
         }

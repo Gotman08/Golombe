@@ -24,11 +24,12 @@ main() {
 
     # Create remote directories
     log_info "Creating remote directories..."
-    remote_exec "mkdir -p ${REMOTE_BASE_DIR}/{src,build,results/romeo,scripts}"
+    remote_exec "mkdir -p ${REMOTE_BASE_DIR}/{src,include,build,results/romeo,scripts}"
 
-    # Sync source code
+    # Sync source code and headers
     log_info "Syncing source code to Romeo..."
     remote_copy "${LOCAL_PROJECT_DIR}/src/" "${REMOTE_BASE_DIR}/src/"
+    remote_copy "${LOCAL_PROJECT_DIR}/include/" "${REMOTE_BASE_DIR}/include/"
     remote_copy "${LOCAL_PROJECT_DIR}/Makefile" "${REMOTE_BASE_DIR}/"
     remote_copy "${SCRIPT_DIR}/" "${REMOTE_BASE_DIR}/scripts/romeo/"
 

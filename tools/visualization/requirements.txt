@@ -1,0 +1,26 @@
+# Golomb Ruler Solver - Visualization Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core dependencies
+matplotlib>=3.7.0
+seaborn>=0.12.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Scientific computing
+scipy>=1.10.0
+
+# Treemap visualization
+squarify>=0.4.3
+
+# Interactive plots (optional, for sunburst diagrams)
+plotly>=5.15.0
+kaleido>=0.2.1  # For exporting plotly to static images
+
+# Data handling
+openpyxl>=3.1.0  # For Excel export
+
+# Development dependencies (optional)
+# pytest>=7.0.0
+# black>=23.0.0
+# mypy>=1.0.0

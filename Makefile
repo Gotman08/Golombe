@@ -86,6 +86,25 @@ hypercube: v4
 
 # ===== TEST TARGETS =====
 
+# Unit tests
+TEST_DIR = tests
+TEST_UNIT = test_correctness
+TEST_OMP = test_openmp
+TEST_MPI = test_mpi_unit
+
+test_unit: $(TEST_DIR)/test_correctness.cpp $(COMMON_SRCS) | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS_BASE) -O2 -I$(INCLUDE_DIR) -o $(BUILD_DIR)/$(TEST_UNIT) $< $(COMMON_SRCS)
+	./$(BUILD_DIR)/$(TEST_UNIT)
+
+test_openmp_unit: $(TEST_DIR)/test_openmp.cpp $(COMMON_SRCS) | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS_BASE) -O2 $(OPENMP_FLAGS) -I$(INCLUDE_DIR) -o $(BUILD_DIR)/$(TEST_OMP) $< $(COMMON_SRCS)
+	OMP_NUM_THREADS=4 ./$(BUILD_DIR)/$(TEST_OMP)
+
+test_mpi_unit: $(TEST_DIR)/test_mpi.cpp $(COMMON_SRCS) | $(BUILD_DIR)
+	$(MPICXX) $(CXXFLAGS_BASE) -O2 -I$(INCLUDE_DIR) -o $(BUILD_DIR)/$(TEST_MPI) $< $(COMMON_SRCS)
+	mpirun --oversubscribe -np 4 ./$(BUILD_DIR)/$(TEST_MPI)
+
+# Integration tests
 test: v1 v2
 	@echo "=== Testing v1 (Sequential) ==="
 	./$(BUILD_DIR)/$(V1) 7
@@ -100,6 +119,9 @@ test_mpi: v3
 test_v4: v4
 	@echo "=== Testing v4 (Pure Hypercube MPI+OpenMP) ==="
 	OMP_NUM_THREADS=2 mpirun --oversubscribe -np 4 ./$(BUILD_DIR)/$(V4) 8 --threads 2
+
+# Run all tests
+test_all: test_unit test_openmp_unit test test_mpi test_v4
 
 # ===== BENCHMARK TARGETS =====
 
@@ -163,14 +185,20 @@ help:
 	@echo "  v3_noavx   - Hybrid without AVX2"
 	@echo "  v4_noavx   - Hypercube without AVX2"
 	@echo ""
-	@echo "Test and benchmark:"
-	@echo "  test       - Quick test of v1 and v2"
-	@echo "  test_mpi   - Quick test of v3 (MPI master/worker)"
-	@echo "  test_v4    - Quick test of v4 (MPI hypercube)"
-	@echo "  benchmark  - Run benchmarks"
-	@echo "  benchmark_v2 - Benchmark v2 with various thread counts"
-	@echo "  benchmark_v3 - Benchmark v3 with various configurations"
-	@echo "  benchmark_v4 - Benchmark v4 with various hypercube sizes"
+	@echo "Test targets:"
+	@echo "  test_unit      - Run unit tests (test_correctness.cpp)"
+	@echo "  test_openmp_unit - Run OpenMP unit tests"
+	@echo "  test_mpi_unit  - Run MPI unit tests (requires mpirun)"
+	@echo "  test           - Integration test of v1 and v2"
+	@echo "  test_mpi       - Integration test of v3 (MPI master/worker)"
+	@echo "  test_v4        - Integration test of v4 (MPI hypercube)"
+	@echo "  test_all       - Run all tests"
+	@echo ""
+	@echo "Benchmark targets:"
+	@echo "  benchmark      - Run benchmarks"
+	@echo "  benchmark_v2   - Benchmark v2 with various thread counts"
+	@echo "  benchmark_v3   - Benchmark v3 with various configurations"
+	@echo "  benchmark_v4   - Benchmark v4 with various hypercube sizes"
 	@echo ""
 	@echo "  clean      - Remove all built files"
 	@echo ""
@@ -182,5 +210,6 @@ help:
 
 .PHONY: all v1 v2 v3 v4 v1_noavx v2_noavx v3_noavx v4_noavx
 .PHONY: sequential openmp hybrid parallel hypercube
-.PHONY: test test_mpi test_v4 benchmark benchmark_v1 benchmark_v2 benchmark_v3 benchmark_v4
+.PHONY: test test_unit test_openmp_unit test_mpi_unit test_mpi test_v4 test_all
+.PHONY: benchmark benchmark_v1 benchmark_v2 benchmark_v3 benchmark_v4
 .PHONY: clean help

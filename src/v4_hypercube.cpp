@@ -590,10 +590,25 @@ int main(int argc, char* argv[]) {
     std::string csvFile;
     bool useSIMD = true;
 
+    // Safe integer parsing helper
+    auto safeParseInt = [&rank](const char* str, int defaultVal, const char* name) {
+        try {
+            int val = std::stoi(str);
+            if (val <= 0) {
+                if (rank == 0) std::cerr << "Warning: Invalid " << name << " value, using default\n";
+                return defaultVal;
+            }
+            return val;
+        } catch (const std::exception&) {
+            if (rank == 0) std::cerr << "Warning: Invalid " << name << " value, using default\n";
+            return defaultVal;
+        }
+    };
+
     for (int i = 2; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--threads" && i+1 < argc) numThreads = std::atoi(argv[++i]);
-        else if (arg == "--depth" && i+1 < argc) prefixDepth = std::atoi(argv[++i]);
+        if (arg == "--threads" && i+1 < argc) numThreads = safeParseInt(argv[++i], numThreads, "threads");
+        else if (arg == "--depth" && i+1 < argc) prefixDepth = safeParseInt(argv[++i], prefixDepth, "depth");
         else if (arg == "--csv" && i+1 < argc) csvFile = argv[++i];
         else if (arg == "--no-simd") useSIMD = false;
     }

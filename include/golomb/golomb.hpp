@@ -143,8 +143,8 @@ inline int parseAndValidateOrder(const char* str, int maxOrder = MAX_ORDER) {
         return -1;  // Not a valid number
     }
 
-    // Check range
-    if (val < 2 || val >= maxOrder) {
+    // Check range (val == maxOrder is valid)
+    if (val < 2 || val > maxOrder) {
         return -1;  // Out of range
     }
 

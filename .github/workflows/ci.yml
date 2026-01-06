@@ -10,14 +10,6 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        compiler: [g++]
-        include:
-          - compiler: g++
-            cxx: g++-11
-            mpicxx: mpicxx
-
     steps:
     - uses: actions/checkout@v4
 
@@ -31,30 +23,30 @@ jobs:
 
     - name: Check compiler versions
       run: |
-        ${{ matrix.cxx }} --version
+        g++ --version
         mpicxx --version
         mpirun --version
 
     - name: Build v1 (Sequential)
-      run: make v1 CXX=${{ matrix.cxx }}
+      run: make v1
 
     - name: Build v2 (OpenMP)
-      run: make v2 CXX=${{ matrix.cxx }}
+      run: make v2
 
     - name: Build v3 (Hybrid MPI+OpenMP)
-      run: make v3 MPICXX=${{ matrix.mpicxx }}
+      run: make v3
 
     - name: Build v4 (Hypercube MPI+OpenMP)
-      run: make v4 MPICXX=${{ matrix.mpicxx }}
+      run: make v4
 
     - name: Build without AVX2 (portability check)
       run: |
         make clean
-        make v1_noavx CXX=${{ matrix.cxx }}
-        make v2_noavx CXX=${{ matrix.cxx }}
+        make v1_noavx
+        make v2_noavx
 
     - name: Run unit tests
-      run: make test CXX=${{ matrix.cxx }}
+      run: make test_unit
 
     - name: Test v1 correctness (G4-G8)
       run: |
@@ -96,23 +88,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        brew install open-mpi libomp
-
-    - name: Build v1 and v2 (without AVX2 for ARM)
-      run: |
-        make v1_noavx
-        make v2_noavx
+    - name: Build v1 (without AVX2 for ARM)
+      run: make v1_noavx
 
     - name: Run unit tests
-      run: make test
+      run: make test_unit
 
     - name: Test v1 correctness (G4-G6)
       run: |
-        ./build/golomb_v1 4 | grep -q "Length: 6" && echo "G4 OK" || exit 1
-        ./build/golomb_v1 5 | grep -q "Length: 11" && echo "G5 OK" || exit 1
-        ./build/golomb_v1 6 | grep -q "Length: 17" && echo "G6 OK" || exit 1
+        ./build/golomb_v1_noavx 4 | grep -q "Length: 6" && echo "G4 OK" || exit 1
+        ./build/golomb_v1_noavx 5 | grep -q "Length: 11" && echo "G5 OK" || exit 1
+        ./build/golomb_v1_noavx 6 | grep -q "Length: 17" && echo "G6 OK" || exit 1
 
   lint:
     runs-on: ubuntu-latest

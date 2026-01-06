@@ -41,7 +41,6 @@ jobs:
 
     - name: Build without AVX2 (portability check)
       run: |
-        make clean
         make v1_noavx
         make v2_noavx
 

@@ -200,6 +200,19 @@ help:
 	@echo "  benchmark_v3   - Benchmark v3 with various configurations"
 	@echo "  benchmark_v4   - Benchmark v4 with various hypercube sizes"
 	@echo ""
+	@echo "Romeo HPC targets (requires SSH key configured):"
+	@echo "  romeo          - Full workflow: deploy + submit all benchmarks"
+	@echo "  romeo-deploy   - Deploy code to Romeo and compile"
+	@echo "  romeo-bench    - Submit all benchmarks (~200 jobs)"
+	@echo "  romeo-bench-quick - Submit essential benchmarks (42 jobs)"
+	@echo "  romeo-status   - Check job status on Romeo"
+	@echo "  romeo-fetch    - Download results from Romeo"
+	@echo "  romeo-wait     - Wait for jobs to complete, then fetch"
+	@echo ""
+	@echo "  Arguments (defaults: ROMEO_USER=nimarano, ROMEO_HOST=romeo1):"
+	@echo "    make romeo ROMEO_USER=dupont"
+	@echo "    make romeo-status ROMEO_USER=dupont ROMEO_HOST=romeo2"
+	@echo ""
 	@echo "  clean      - Remove all built files"
 	@echo ""
 	@echo "Usage examples:"
@@ -207,9 +220,58 @@ help:
 	@echo "  make v2 && OMP_NUM_THREADS=32 ./build/golomb_v2 12"
 	@echo "  make v3 && OMP_NUM_THREADS=8 mpirun -np 4 ./build/golomb_v3 14 --threads 8"
 	@echo "  make v4 && OMP_NUM_THREADS=8 mpirun -np 8 ./build/golomb_v4 14 --threads 8"
+	@echo ""
+	@echo "Romeo workflow:"
+	@echo "  make romeo && make romeo-wait    # Deploy, run, wait, fetch"
+
+# ===== ROMEO HPC TARGETS =====
+# Configuration via environment variables (override with: ROMEO_USER=prof make romeo)
+
+ROMEO_HOST ?= romeo1
+ROMEO_USER ?= nimarano
+ROMEO_DIR ?= ~/golomb
+
+# Deploy code to Romeo and compile
+romeo-deploy:
+	@echo "=== Deploying to Romeo ==="
+	@bash scripts/hpc/deploy.sh
+
+# Submit all benchmarks (~200 jobs)
+romeo-bench:
+	@echo "=== Submitting all benchmark jobs ==="
+	@ssh $(ROMEO_HOST) "cd $(ROMEO_DIR) && bash scripts/hpc/run_benchmarks.sh --submit"
+
+# Submit only essential benchmarks (42 jobs - faster)
+romeo-bench-quick:
+	@echo "=== Submitting essential benchmark jobs ==="
+	@ssh $(ROMEO_HOST) "cd $(ROMEO_DIR) && bash scripts/hpc/run_essential.sh"
+
+# Check job status
+romeo-status:
+	@ssh $(ROMEO_HOST) "squeue -u $(ROMEO_USER) --format='%.10i %.20j %.8T %.10M %.6D %R'"
+
+# Fetch results from Romeo
+romeo-fetch:
+	@echo "=== Fetching results ==="
+	@mkdir -p results/romeo
+	@rsync -avz --progress $(ROMEO_HOST):$(ROMEO_DIR)/results/romeo/ results/romeo/
+	@echo "Results saved to results/romeo/"
+
+# Wait for jobs and fetch results
+romeo-wait:
+	@bash scripts/hpc/wait_and_fetch.sh
+
+# Full workflow: deploy + bench
+romeo: romeo-deploy romeo-bench
+	@echo ""
+	@echo "Jobs submitted! Next steps:"
+	@echo "  make romeo-status  - Check job progress"
+	@echo "  make romeo-fetch   - Download results (when jobs complete)"
+	@echo "  make romeo-wait    - Auto-wait and fetch"
 
 .PHONY: all v1 v2 v3 v4 v1_noavx v2_noavx v3_noavx v4_noavx
 .PHONY: sequential openmp hybrid parallel hypercube
 .PHONY: test test_unit test_openmp_unit test_mpi_unit test_mpi test_v4 test_all
 .PHONY: benchmark benchmark_v1 benchmark_v2 benchmark_v3 benchmark_v4
+.PHONY: romeo romeo-deploy romeo-bench romeo-bench-quick romeo-status romeo-fetch romeo-wait
 .PHONY: clean help

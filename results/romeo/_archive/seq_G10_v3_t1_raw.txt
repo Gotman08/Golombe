@@ -1,0 +1,13 @@
+=== Golomb Ruler Solver v3: Branch and Bound ===
+Order: 10 (symmetry breaking enabled)
+Initial greedy solution: [0, 1, 3, 7, 12, 20, 30, 44, 65, 80] (length 80)
+
+=== Golomb G10 ===
+Solution: [0, 1, 6, 10, 23, 26, 34, 41, 53, 55]
+Length: 55
+Time: 150.86 ms
+Nodes explored: 2466476
+Nodes pruned: 5398765
+Pruning ratio: 68.6%
+
+*** OPTIMAL SOLUTION FOUND ***

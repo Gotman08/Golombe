@@ -52,24 +52,27 @@ COMPILER_ARM="${COMPILER_ARM:-nvhpc}"
 # v2: OpenMP (multi-threaded)
 # v3: Hybrid MPI+OpenMP (master/worker)
 # v4: Pure Hypercube MPI+OpenMP (all ranks equal)
+# v5: Pure MPI (no OpenMP, hypercube topology)
 
 # Sequential versions: orders adapted to each version's performance
 declare -A SEQ_ORDERS
-SEQ_ORDERS[1]="10 11"           # v1 sequential: G10-G11
-SEQ_ORDERS[2]="10 11 12 13"     # v2 OpenMP: G10-G13
+SEQ_ORDERS[1]="8 9 10 11"           # v1 sequential: G8-G11 (baseline)
+SEQ_ORDERS[2]="8 9 10 11 12 13 14"  # v2 OpenMP: G8-G14
 
 # MPI versions: orders adapted to parallel scaling
 declare -A MPI_ORDERS
-MPI_ORDERS[3]="10 11 12 13 14"  # v3 hybrid MPI+OpenMP
-MPI_ORDERS[4]="10 11 12 13 14"  # v4 hypercube MPI+OpenMP
+MPI_ORDERS[3]="8 9 10 11 12 13"     # v3 hybrid MPI+OpenMP: G8-G13
+MPI_ORDERS[4]="8 9 10 11 12 13"     # v4 hypercube MPI+OpenMP: G8-G13
+MPI_ORDERS[5]="8 9 10 11 12 13"     # v5 pure MPI: G8-G13
 
 # All versions support CSV output
 CSV_SEQ_VERSIONS=(1 2)
-CSV_MPI_VERSIONS=(3 4)
+CSV_MPI_VERSIONS=(3 4 5)
 
 # Process and thread counts
-MPI_PROCS=(8 16 32 64 128)                      # Number of MPI processes to test
-OMP_THREADS=(1 4 8 16)                          # OpenMP thread counts for v2-v4
+MPI_PROCS=(4 8 16 32)                           # Number of MPI processes for v3/v4
+MPI_PROCS_V5=(8 16 32 64 128 256)               # Higher process counts for v5 pure MPI
+OMP_THREADS=(1 8 16 32 64 128)                  # OpenMP thread counts for v2-v4
 
 # Time limits per order (format: HH:MM:SS)
 declare -A TIME_LIMITS

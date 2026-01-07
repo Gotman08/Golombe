@@ -11,10 +11,9 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=8G
 #SBATCH --constraint=x64cpu
+#SBATCH --distribution=block:block
 #SBATCH --partition=instant
 #SBATCH --account=r250127
-# CPU affinity is handled by srun, not sbatch
-#SBATCH --distribution=block:block
 
 # =============================================================================
 # CPU Affinity Settings (Performance Optimization)

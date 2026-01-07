@@ -1,0 +1,2 @@
+version,order,procs,time_ms,speedup,efficiency,nodes,solution,length
+1,10,64,45.58,0,0,2913812,"[0, 1, 6, 10, 23, 26, 34, 41, 53, 55]",55

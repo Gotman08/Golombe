@@ -1,0 +1,17 @@
+=== Golomb Ruler Solver v3: Hybrid MPI+OpenMP ===
+Order: 11
+MPI Processes: 8
+OpenMP Threads/rank: 4
+Total workers: 32
+Prefix depth: 5
+SIMD/AVX2: Enabled
+Initial bound: 96
+Subtrees: 1843134
+
+=== Golomb G11 ===
+Solution: [0, 1, 4, 13, 28, 33, 47, 54, 64, 70, 72]
+Length: 72
+Time: 2310.27 ms
+Nodes explored: 42706434
+Nodes pruned: 102266337
+*** OPTIMAL SOLUTION FOUND ***

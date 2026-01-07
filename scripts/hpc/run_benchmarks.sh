@@ -277,8 +277,8 @@ main() {
         echo "  Version v${version}: orders ${orders}"
 
         for order in $orders; do
-            if [[ $version -eq 6 ]]; then
-                # v6: Test with different thread counts
+            if [[ $version -eq 2 || $version -eq 6 ]]; then
+                # v2 and v6: OpenMP versions - test with different thread counts
                 for threads in ${OMP_THREADS[*]}; do
                     job_file=$(generate_seq_job $order $version $threads)
                     submit_job "${job_file}"

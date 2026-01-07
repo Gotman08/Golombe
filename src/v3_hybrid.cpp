@@ -39,6 +39,30 @@
 #endif
 
 // ============================================================================
+// MPI Error Checking Macro
+// ============================================================================
+
+/**
+ * @brief Macro to check MPI return codes and abort on error.
+ *
+ * Provides detailed error messages including file and line number.
+ * Should be used for critical MPI operations (Init, Finalize, Allreduce, etc.)
+ *
+ * @param call MPI function call to check
+ */
+#define MPI_CHECK(call) do { \
+    int mpi_err = (call); \
+    if (mpi_err != MPI_SUCCESS) { \
+        char mpi_err_str[MPI_MAX_ERROR_STRING]; \
+        int mpi_err_len; \
+        MPI_Error_string(mpi_err, mpi_err_str, &mpi_err_len); \
+        std::cerr << "MPI Error at " << __FILE__ << ":" << __LINE__ \
+                  << ": " << mpi_err_str << std::endl; \
+        MPI_Abort(MPI_COMM_WORLD, mpi_err); \
+    } \
+} while(0)
+
+// ============================================================================
 // MPI Tags
 // ============================================================================
 
@@ -325,19 +349,18 @@ std::vector<int> getHypercubeNeighbors(int rank, int size) {
 /**
  * @brief Broadcasts a new bound to hypercube neighbors.
  *
- * Uses non-blocking sends to propagate bound updates with O(log P) latency.
+ * Uses standard MPI_Send for bound propagation with O(log P) latency.
+ * MPI_Send is buffered for small messages, avoiding both:
+ * - The UB of fire-and-forget MPI_Isend+Request_free
+ * - The deadlock risk of MPI_Ssend in peer-to-peer patterns
  *
  * @param bound New bound value to broadcast
  * @param rank  Current MPI rank
  * @param size  Total number of MPI processes
- *
- * @note Uses MPI_Isend with immediate request free (fire-and-forget)
  */
 void broadcastBoundToNeighbors(int bound, int rank, int size) {
     for (int neighbor : getHypercubeNeighbors(rank, size)) {
-        MPI_Request request;
-        MPI_Isend(&bound, 1, MPI_INT, neighbor, TAG_BOUND, MPI_COMM_WORLD, &request);
-        MPI_Request_free(&request);
+        MPI_Send(&bound, 1, MPI_INT, neighbor, TAG_BOUND, MPI_COMM_WORLD);
     }
 }
 
@@ -672,30 +695,27 @@ private:
      * @brief Thread-safe update of the best solution with MPI broadcast.
      *
      * Updates local best and broadcasts to hypercube neighbors if improved.
-     * Uses atomic CAS for the length and mutex for the solution data.
+     * All operations are protected by mutex to ensure consistency.
      *
      * @param[in] length New solution length
      * @param[in] state  Thread state containing the solution
      *
-     * @thread_safety Thread-safe via atomic operations and mutex
+     * @thread_safety Thread-safe via mutex protection
      */
     void updateBestSolution(int length, const ThreadState& state) {
-        int current = localBestLength.load(std::memory_order_relaxed);
-        while (length < current) {
-            if (localBestLength.compare_exchange_weak(current, length)) {
-                std::lock_guard<std::mutex> lock(solutionMutex);
-                if (length < bestSolution.length) {
-                    bestSolution.length = length;
-                    bestSolution.order = order;
-                    bestSolution.marks.assign(state.marks, state.marks + state.markCount);
+        std::lock_guard<std::mutex> lock(solutionMutex);
 
-                    // Broadcast improved bound to hypercube neighbors
-                    if (length < *globalBound) {
-                        *globalBound = length;
-                        broadcastBoundToNeighbors(length, mpiRank, mpiSize);
-                    }
-                }
-                break;
+        // Check and update atomically under mutex protection
+        if (length < localBestLength.load(std::memory_order_acquire)) {
+            localBestLength.store(length, std::memory_order_release);
+            bestSolution.length = length;
+            bestSolution.order = order;
+            bestSolution.marks.assign(state.marks, state.marks + state.markCount);
+
+            // Broadcast improved bound to hypercube neighbors
+            if (length < *globalBound) {
+                *globalBound = length;
+                broadcastBoundToNeighbors(length, mpiRank, mpiSize);
             }
         }
     }

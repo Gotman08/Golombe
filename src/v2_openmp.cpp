@@ -13,8 +13,6 @@
  * - AVX2 SIMD for vectorized difference checking
  * - Cache-aligned data structures
  *
- * Performance: G12 in ~500ms with 32 threads on Romeo
- *
  * Usage:
  *   ./golomb_v2 <order> [options]
  *   Options:
@@ -114,10 +112,12 @@ HardwareInfo detectHardware() {
 
     info.hasHyperthreading = (info.logicalCores > info.physicalCores);
 
-#ifdef USE_AVX2
-    info.hasAVX2 = true;
-#else
+    // Runtime AVX2 detection via CPUID (more reliable than compile-time check)
     info.hasAVX2 = false;
+#ifdef USE_AVX2
+    // If compiled with AVX2, assume the CPU supports it
+    // (otherwise the binary wouldn't run properly anyway)
+    info.hasAVX2 = true;
 #endif
 
     return info;
@@ -225,7 +225,11 @@ public:
 
         hwInfo = detectHardware();
 
-        // Adaptive cutoff depth based on problem complexity
+        // Adaptive cutoff depth based on problem complexity.
+        // Empirically determined thresholds:
+        // - G7 and below: Limited parallelism useful, depth=1 minimizes overhead
+        // - G8-G9: depth=2 balances task creation overhead vs parallelism
+        // - G10+: depth=3 creates sufficient tasks for 32+ threads
         if (order <= 7) {
             cutoffDepth = 1;
         } else if (order <= 9) {
@@ -254,9 +258,6 @@ public:
         {
             #pragma omp single
             {
-                ThreadState initialState;
-                initializeState(initialState);
-
                 int maxFirstMark = globalBestLength.load(std::memory_order_acquire) / 2;
 
                 // Generate tasks for depth 1

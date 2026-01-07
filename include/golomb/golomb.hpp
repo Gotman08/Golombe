@@ -18,7 +18,18 @@
 #include <climits>
 #include <chrono>
 
-/** @brief Maximum ruler length for bitset sizing (G11=72, G12=85, 256 for margin) */
+/**
+ * @brief Maximum ruler length for bitset sizing.
+ *
+ * Current limit: 256 bits (sufficient for G14=127, G15~160).
+ * To support G16+ (estimated length ~190+), would require:
+ * 1. Increase this to 512
+ * 2. Create BitSet512 in bitset256.hpp (double the words array)
+ * 3. Update AVX2 code to use 2x _mm256 operations
+ *
+ * @note G14=127, G15≈160, G16≈190 (estimated)
+ * @see BitSet256 which must match this limit
+ */
 constexpr int MAX_LENGTH = 256;
 
 /** @brief Maximum supported ruler order */

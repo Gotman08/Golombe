@@ -34,6 +34,8 @@ void Timer::reset() {
 
 /** @copydoc Timer::elapsedMs() */
 double Timer::elapsedMs() const {
+    // Returns 0.0 if timer was never started via start().
+    // This is intentional: callers should check timer state or ensure start() was called.
     if (!running) return 0.0;
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime);

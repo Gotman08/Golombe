@@ -50,13 +50,30 @@
 // Hardware Detection
 // ============================================================================
 
+/**
+ * @struct HardwareInfo
+ * @brief Contains information about the system's CPU capabilities.
+ *
+ * Used to make intelligent decisions about thread count and SIMD usage.
+ */
 struct HardwareInfo {
-    int logicalCores;
-    int physicalCores;
-    bool hasHyperthreading;
-    bool hasAVX2;
+    int logicalCores;       ///< Number of logical cores (includes hyperthreads)
+    int physicalCores;      ///< Number of physical cores
+    bool hasHyperthreading; ///< True if hyperthreading is enabled
+    bool hasAVX2;           ///< True if AVX2 SIMD instructions are available
 };
 
+/**
+ * @brief Detects CPU hardware characteristics.
+ *
+ * Queries the system to determine the number of physical and logical cores,
+ * hyperthreading status, and AVX2 support. On Linux, reads /proc/cpuinfo
+ * to distinguish physical from logical cores.
+ *
+ * @return HardwareInfo structure with detected capabilities
+ *
+ * @note Falls back to conservative defaults if detection fails
+ */
 HardwareInfo detectHardware() {
     HardwareInfo info;
 
@@ -106,6 +123,19 @@ HardwareInfo detectHardware() {
     return info;
 }
 
+/**
+ * @brief Selects optimal thread count based on hardware and problem size.
+ *
+ * Uses a heuristic to balance parallelization overhead against workload:
+ * - Small problems (order <= 7): Limited threads to avoid overhead
+ * - Medium problems (order <= 9): Use physical cores
+ * - Large problems (order >= 10): Use all logical cores (including HT)
+ *
+ * @param hw    Hardware information from detectHardware()
+ * @param order Order of the Golomb ruler to solve
+ *
+ * @return Recommended number of threads
+ */
 int selectThreadCount(const HardwareInfo& hw, int order) {
     if (order <= 7) {
         return std::min(hw.physicalCores, 4);
@@ -120,37 +150,74 @@ int selectThreadCount(const HardwareInfo& hw, int order) {
 // Thread-Local State (Cache-aligned)
 // ============================================================================
 
+/**
+ * @struct ThreadState
+ * @brief Thread-local search state for OpenMP parallel execution.
+ *
+ * Cache-aligned (64 bytes) to prevent false sharing between threads.
+ * Each thread maintains its own copy of the search state, reducing
+ * synchronization overhead.
+ *
+ * @note The cachedBound mechanism reduces atomic contention by only
+ *       checking the global bound every 16K nodes.
+ */
 struct alignas(64) ThreadState {
-    int marks[MAX_ORDER];
-    BitSet256 usedDiffs;
-    int markCount;
-    int localNodesExplored;
-    int localNodesPruned;
-    int cachedBound;      // Cached global bound to reduce atomic contention
-    int checkCounter;     // Counter for bound refresh interval
-    char padding[64 - (sizeof(int) * 4) % 64];
+    int marks[MAX_ORDER];       ///< Array of mark positions on the ruler
+    BitSet256 usedDiffs;        ///< Bitset tracking used differences
+    int markCount;              ///< Current number of marks placed
+    int localNodesExplored;     ///< Thread-local counter for explored nodes
+    int localNodesPruned;       ///< Thread-local counter for pruned nodes
+    int cachedBound;            ///< Cached global bound to reduce atomic contention
+    int checkCounter;           ///< Counter for bound refresh interval (resets at 16K)
+    char padding[64 - (sizeof(int) * 4) % 64]; ///< Padding to ensure 64-byte alignment
 };
 
 // ============================================================================
 // OpenMP Solver
 // ============================================================================
 
+/**
+ * @class OpenMPSolver
+ * @brief OpenMP-parallelized branch-and-bound solver for optimal Golomb rulers.
+ *
+ * This class implements a multi-threaded branch-and-bound algorithm using
+ * OpenMP task parallelism. Key features:
+ * - Task-based parallelism at shallow tree depths (cutoff depth 1-3)
+ * - Bound caching to reduce atomic contention (16K interval)
+ * - Thread-local state to minimize synchronization
+ * - Adaptive cutoff depth based on problem size
+ *
+ * @note Thread count is controlled via OMP_NUM_THREADS or --threads option
+ * @see SequentialSolver for single-threaded version
+ */
 class OpenMPSolver {
 private:
-    int order;
-    std::atomic<int> globalBestLength;
-    GolombRuler bestSolution;
-    std::mutex solutionMutex;
+    int order;                              ///< Target number of marks
+    std::atomic<int> globalBestLength;      ///< Best length found (atomic for thread safety)
+    GolombRuler bestSolution;               ///< Best solution found so far
+    std::mutex solutionMutex;               ///< Mutex for updating bestSolution
 
-    std::atomic<uint64_t> totalNodesExplored;
-    std::atomic<uint64_t> totalNodesPruned;
+    std::atomic<uint64_t> totalNodesExplored; ///< Global counter for explored nodes
+    std::atomic<uint64_t> totalNodesPruned;   ///< Global counter for pruned nodes
 
-    int cutoffDepth;
-    bool useSIMD;
-    bool verbose;
-    HardwareInfo hwInfo;
+    int cutoffDepth;    ///< Depth at which to stop generating tasks
+    bool useSIMD;       ///< Whether to use AVX2 SIMD optimizations
+    bool verbose;       ///< Whether to print progress information
+    HardwareInfo hwInfo; ///< Detected hardware capabilities
 
 public:
+    /**
+     * @brief Constructs a new OpenMP Solver.
+     *
+     * Initializes the solver, detects hardware capabilities, sets adaptive
+     * cutoff depth, and computes initial upper bound using greedy heuristic.
+     *
+     * @param n     The order of the Golomb ruler to find (number of marks)
+     * @param simd  Enable AVX2 SIMD optimizations (default: true)
+     * @param verb  Enable verbose output during search (default: false)
+     *
+     * @pre n must be between 2 and MAX_ORDER-1
+     */
     OpenMPSolver(int n, bool simd = true, bool verb = false)
         : order(n), globalBestLength(INT_MAX),
           totalNodesExplored(0), totalNodesPruned(0),
@@ -158,7 +225,7 @@ public:
 
         hwInfo = detectHardware();
 
-        // Adaptive cutoff depth
+        // Adaptive cutoff depth based on problem complexity
         if (order <= 7) {
             cutoffDepth = 1;
         } else if (order <= 9) {
@@ -170,6 +237,18 @@ public:
         findGreedySolution();
     }
 
+    /**
+     * @brief Executes the parallel branch-and-bound search.
+     *
+     * Uses OpenMP task parallelism to distribute work across threads.
+     * Tasks are generated at shallow depths (1-2) to create sufficient
+     * parallelism while minimizing task creation overhead.
+     *
+     * @post bestSolution contains the optimal ruler found
+     * @post totalNodesExplored and totalNodesPruned are updated
+     *
+     * @thread_safety Thread-safe; uses atomic operations and mutex for synchronization
+     */
     void solve() {
         #pragma omp parallel
         {
@@ -206,6 +285,13 @@ public:
         }
     }
 
+    /**
+     * @brief Retrieves the search statistics after solving.
+     *
+     * @return SearchStats structure containing nodes explored, pruned, and best solution
+     *
+     * @thread_safety Thread-safe; reads atomic values
+     */
     SearchStats getStats() const {
         SearchStats stats;
         stats.nodesExplored = totalNodesExplored.load();
@@ -214,11 +300,24 @@ public:
         return stats;
     }
 
+    /**
+     * @brief Returns the detected hardware information.
+     *
+     * @return Reference to HardwareInfo with CPU capabilities
+     */
     const HardwareInfo& getHardwareInfo() const {
         return hwInfo;
     }
 
 private:
+    /**
+     * @brief Initializes a thread-local search state.
+     *
+     * Sets up the initial state with mark 0 at position 0, clears counters,
+     * and caches the current global bound.
+     *
+     * @param[out] state The thread state to initialize
+     */
     void initializeState(ThreadState& state) {
         state.marks[0] = 0;
         state.markCount = 1;
@@ -229,6 +328,15 @@ private:
         state.checkCounter = 0;
     }
 
+    /**
+     * @brief Computes an initial upper bound using a greedy heuristic.
+     *
+     * Uses a greedy algorithm to quickly find a valid Golomb ruler.
+     * This provides an initial upper bound for pruning during search.
+     *
+     * @post bestSolution contains the greedy solution
+     * @post globalBestLength is set to the greedy solution's length
+     */
     void findGreedySolution() {
         BitSet256 greedyDiffs;
         greedyDiffs.reset();
@@ -242,6 +350,18 @@ private:
         }
     }
 
+    /**
+     * @brief Generates OpenMP tasks at depth 2 for increased parallelism.
+     *
+     * Creates additional tasks for large problems (order >= 10) to ensure
+     * sufficient work granularity for many threads. Uses triangular pruning
+     * to eliminate unpromising positions early.
+     *
+     * @param[in] parentState The parent state with first mark placed
+     * @param[in] pos1        Position of the first mark
+     *
+     * @note Only called when cutoffDepth >= 2 and order >= 10
+     */
     void generateDepth2Tasks(ThreadState& parentState, int pos1) {
         int currentBest = globalBestLength.load(std::memory_order_acquire);
         int maxPos = currentBest - 1;
@@ -288,6 +408,18 @@ private:
         }
     }
 
+    /**
+     * @brief Recursive branch-and-bound search for Golomb rulers.
+     *
+     * Explores the search tree by trying all valid positions for the next mark.
+     * Uses bound caching (16K interval) to reduce atomic contention while
+     * maintaining good pruning effectiveness.
+     *
+     * @param[in,out] state Current thread-local search state
+     * @param[in]     depth Current depth in the search tree
+     *
+     * @note Uses triangular pruning: remaining marks need at least 1+2+...+k positions
+     */
     void branchAndBound(ThreadState& state, int depth) {
         state.localNodesExplored++;
 
@@ -356,6 +488,19 @@ private:
         }
     }
 
+    /**
+     * @brief Checks differences using scalar (non-SIMD) implementation.
+     *
+     * Computes all differences between the candidate position and existing marks,
+     * checking for collisions with already-used differences.
+     *
+     * @param[in]  state     Current thread state with existing marks
+     * @param[in]  pos       Candidate position for the new mark
+     * @param[out] tempDiffs Array to store the new differences
+     * @param[out] diffCount Number of differences stored
+     *
+     * @return true if all differences are unique, false otherwise
+     */
     inline bool checkDifferencesScalar(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
         diffCount = 0;
         for (int i = 0; i < state.markCount; ++i) {
@@ -369,6 +514,19 @@ private:
     }
 
 #ifdef USE_AVX2
+    /**
+     * @brief Checks differences using AVX2 SIMD vectorization.
+     *
+     * Optimized version that processes 8 marks at a time using AVX2.
+     * Uses vectorized collision detection for improved performance.
+     *
+     * @param[in]  state     Current thread state with existing marks
+     * @param[in]  pos       Candidate position for the new mark
+     * @param[out] tempDiffs Array to store the new differences
+     * @param[out] diffCount Number of differences stored
+     *
+     * @return true if all differences are unique, false otherwise
+     */
     inline bool checkDifferencesAVX2(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
         __m256i vpos = _mm256_set1_epi32(pos);
 
@@ -411,6 +569,17 @@ private:
     }
 #endif
 
+    /**
+     * @brief Thread-safe update of the global best solution.
+     *
+     * Uses mutex to ensure only one thread updates the solution at a time.
+     * Double-checks the bound after acquiring the lock to avoid race conditions.
+     *
+     * @param[in] length Length of the candidate solution
+     * @param[in] state  Thread state containing the candidate solution
+     *
+     * @thread_safety Thread-safe; uses mutex lock
+     */
     void updateGlobalBest(int length, const ThreadState& state) {
         std::lock_guard<std::mutex> lock(solutionMutex);
 
@@ -432,6 +601,18 @@ private:
 // CSV Output
 // ============================================================================
 
+/**
+ * @brief Appends benchmark results to a CSV file.
+ *
+ * Creates the file with headers if it doesn't exist, otherwise appends
+ * a new row with the benchmark results.
+ *
+ * @param filename Path to the CSV file
+ * @param version  Solver version number (2 for OpenMP)
+ * @param order    Order of the Golomb ruler solved
+ * @param stats    Search statistics including time and solution
+ * @param threads  Number of threads used
+ */
 void appendResultCSV(const std::string& filename, int version, int order,
                      const SearchStats& stats, int threads) {
     std::ifstream checkFile(filename);
@@ -462,6 +643,11 @@ void appendResultCSV(const std::string& filename, int version, int order,
 // Main
 // ============================================================================
 
+/**
+ * @brief Prints usage information and available command-line options.
+ *
+ * @param progName Name of the executable (typically argv[0])
+ */
 void printUsage(const char* progName) {
     std::cout << "Golomb Ruler Solver v2 - OpenMP Version\n\n";
     std::cout << "Usage: " << progName << " <order> [options]\n\n";
@@ -478,6 +664,11 @@ void printUsage(const char* progName) {
     std::cout << "  OMP_NUM_THREADS=16 " << progName << " 12 --benchmark\n";
 }
 
+/**
+ * @brief Displays detected hardware capabilities.
+ *
+ * @param hw HardwareInfo structure to display
+ */
 void printHardwareInfo(const HardwareInfo& hw) {
     std::cout << "\n=== Hardware Information ===\n";
     std::cout << "Logical cores:  " << hw.logicalCores << '\n';
@@ -487,6 +678,20 @@ void printHardwareInfo(const HardwareInfo& hw) {
     std::cout << "============================\n\n";
 }
 
+/**
+ * @brief Main entry point for the OpenMP Golomb ruler solver.
+ *
+ * Parses command-line arguments, configures thread count, and runs
+ * the solver in single or benchmark mode.
+ *
+ * @param argc Number of command-line arguments
+ * @param argv Array of command-line argument strings
+ *
+ * @return 0 on success, 1 on error
+ *
+ * Environment variables:
+ * - OMP_NUM_THREADS: Override thread count
+ */
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         printUsage(argv[0]);

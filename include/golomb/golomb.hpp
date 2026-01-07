@@ -18,15 +18,19 @@
 #include <climits>
 #include <chrono>
 
-// Maximum ruler length for bitset sizing
-// G11 = 72, G12 = 85, using 256 for safety margin
+/** @brief Maximum ruler length for bitset sizing (G11=72, G12=85, 256 for margin) */
 constexpr int MAX_LENGTH = 256;
+
+/** @brief Maximum supported ruler order */
 constexpr int MAX_ORDER = 20;
 
-// Known optimal lengths for Golomb rulers (verified - OEIS A003022)
-// Index = order, value = optimal length
-// Note: Multiple distinct optimal rulers exist for each order
-// Examples shown are one possible solution among several
+/**
+ * @brief Known optimal lengths for Golomb rulers (OEIS A003022).
+ *
+ * Index = order, value = optimal length.
+ * Multiple distinct optimal rulers exist for each order.
+ * @note Verified up to order 14.
+ */
 constexpr int OPTIMAL_LENGTHS[] = {
     0,   // G0 (undefined)
     0,   // G1
@@ -45,85 +49,162 @@ constexpr int OPTIMAL_LENGTHS[] = {
     127  // G14
 };
 
-// Golomb Ruler structure
-// Members ordered for optimal cache alignment (larger first, then smaller)
+/**
+ * @struct GolombRuler
+ * @brief Represents a Golomb ruler with its marks, length, and order.
+ *
+ * A Golomb ruler is a set of marks at integer positions where all pairwise
+ * distances are unique. The ruler always starts at position 0.
+ *
+ * Members ordered for optimal cache alignment (larger first, then smaller).
+ */
 struct GolombRuler {
-    std::vector<int> marks;  // Positions [0, a2, a3, ..., an] (24 bytes on 64-bit)
-    int length;              // Last mark value (marks.back()) (4 bytes)
-    int order;               // Number of marks (n) (4 bytes)
+    std::vector<int> marks;  ///< Mark positions [0, a2, a3, ..., an]
+    int length;              ///< Ruler length (last mark position)
+    int order;               ///< Number of marks
 
+    /** @brief Default constructor, creates empty ruler with INT_MAX length. */
     GolombRuler() : length(INT_MAX), order(0) {}
 
+    /**
+     * @brief Constructs a ruler from mark positions.
+     * @param m Vector of mark positions (must start with 0)
+     */
     GolombRuler(const std::vector<int>& m)
         : marks(m),
           length(m.empty() ? 0 : m.back()),
           order(static_cast<int>(m.size())) {}
 
-    // Convert to string representation
+    /**
+     * @brief Converts ruler to string "[0, a2, ..., an]".
+     * @return String representation of the ruler
+     */
     std::string toString() const;
 
-    // Print the ruler
+    /** @brief Prints ruler info to stdout. */
     void print() const;
 
-    // Check if this ruler is valid
+    /**
+     * @brief Validates this ruler.
+     * @return true if all pairwise distances are unique
+     */
     bool isValid() const;
 };
 
-// Search statistics
+/**
+ * @struct SearchStats
+ * @brief Statistics collected during branch-and-bound search.
+ */
 struct SearchStats {
-    uint64_t nodesExplored;   // Total nodes visited in search tree
-    uint64_t nodesPruned;     // Nodes cut by bounding
-    double elapsedMs;         // Total execution time in milliseconds
-    GolombRuler bestSolution; // Best solution found
+    uint64_t nodesExplored;   ///< Total nodes visited in search tree
+    uint64_t nodesPruned;     ///< Nodes cut by bounding
+    double elapsedMs;         ///< Total execution time in milliseconds
+    GolombRuler bestSolution; ///< Best solution found
 
+    /** @brief Default constructor, initializes counters to zero. */
     SearchStats() : nodesExplored(0), nodesPruned(0), elapsedMs(0.0) {}
 };
 
-// Validation functions (implemented in validation.cpp)
+/**
+ * @brief Validates a Golomb ruler using std::set.
+ * @param marks Vector of mark positions
+ * @return true if valid Golomb ruler, false otherwise
+ * @complexity O(n²) where n = number of marks
+ */
 bool isValidGolombRuler(const std::vector<int>& marks);
+
+/**
+ * @brief Fast Golomb ruler validation using bitset.
+ * @param marks Vector of mark positions
+ * @param usedDiffs Bitset to track differences (will be modified)
+ * @return true if valid Golomb ruler, false otherwise
+ * @complexity O(n²) with O(1) lookup
+ */
 bool isValidGolombRulerFast(const std::vector<int>& marks, std::bitset<MAX_LENGTH>& usedDiffs);
+
+/**
+ * @brief Checks if length matches known optimal for given order.
+ * @param order Ruler order (2-14)
+ * @param length Length to check
+ * @return true if matches known optimal length
+ */
 bool isOptimalLength(int order, int length);
 
-// Timing class (implemented in timing.cpp)
+/**
+ * @class Timer
+ * @brief High-resolution timer for performance measurement.
+ */
 class Timer {
 private:
-    std::chrono::high_resolution_clock::time_point startTime;
-    bool running;
+    std::chrono::high_resolution_clock::time_point startTime;  ///< Start timestamp
+    bool running;  ///< Timer running state
 
 public:
+    /** @brief Default constructor, timer not running. */
     Timer();
+
+    /** @brief Starts the timer from current time. */
     void start();
+
+    /** @brief Resets timer to current time, stops running. */
     void reset();
+
+    /**
+     * @brief Returns elapsed time since start.
+     * @return Elapsed time in milliseconds, 0 if not running
+     */
     double elapsedMs() const;
 };
 
-// CSV output helper
+/**
+ * @brief Writes search results to CSV file.
+ * @param filename Output CSV file path
+ * @param version Solver version number (1-4)
+ * @param results Vector of search statistics
+ * @param orders Vector of ruler orders tested
+ */
 void writeResultCSV(const std::string& filename,
                     int version,
                     const std::vector<SearchStats>& results,
                     const std::vector<int>& orders);
 
-// Print search statistics (defined in timing.cpp)
+/**
+ * @brief Prints formatted search statistics to stdout.
+ * @param stats Search statistics to display
+ * @param order Ruler order for header
+ */
 void printStats(const SearchStats& stats, int order);
 
-// Upper bound estimate: n^2 is a safe upper bound for order n
-// Note: For order > 46340, this would overflow int32. We cap at INT_MAX.
+/**
+ * @brief Upper bound estimate for ruler length: n².
+ * @param order Ruler order
+ * @return Upper bound estimate, or INT_MAX for large orders
+ * @note Caps at INT_MAX for order > 46340 to prevent overflow
+ */
 [[gnu::always_inline]]
 inline int upperBoundEstimate(int order) {
     if (order > 46340) return INT_MAX;  // Prevent overflow: sqrt(INT_MAX) ~ 46340
     return order * order;
 }
 
-// Theoretical lower bound (Erdos-Turan): n(n-1)/2
+/**
+ * @brief Theoretical lower bound (Erdős-Turán): n(n-1)/2.
+ * @param order Ruler order
+ * @return Lower bound estimate
+ */
 [[gnu::always_inline]]
 inline int lowerBoundEstimate(int order) {
     return order * (order - 1) / 2;
 }
 
-// Maximum order with known optimal length
+/** @brief Maximum order with known optimal length (G14) */
 constexpr int MAX_KNOWN_ORDER = 14;
 
-// Safe access to OPTIMAL_LENGTHS with bounds checking
+/**
+ * @brief Safe access to OPTIMAL_LENGTHS with bounds checking.
+ * @param order Ruler order (2-14)
+ * @return Known optimal length, or -1 if unknown
+ */
 inline int getOptimalLength(int order) {
     if (order < 2 || order > MAX_KNOWN_ORDER) {
         return -1;  // Unknown
@@ -131,7 +212,12 @@ inline int getOptimalLength(int order) {
     return OPTIMAL_LENGTHS[order];
 }
 
-// Input validation helper - returns parsed order or -1 on error
+/**
+ * @brief Parses and validates ruler order from string.
+ * @param str Input string containing order value
+ * @param maxOrder Maximum allowed order (default: MAX_ORDER)
+ * @return Parsed order (2 to maxOrder), or -1 on error
+ */
 inline int parseAndValidateOrder(const char* str, int maxOrder = MAX_ORDER) {
     if (str == nullptr) return -1;
 

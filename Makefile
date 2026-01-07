@@ -168,6 +168,41 @@ clean:
 	rm -f $(RESULTS_DIR)/sequential/*.csv
 	rm -f $(RESULTS_DIR)/parallel/*.csv
 
+# Clean all CSV files (local + romeo)
+clean-csv:
+	rm -f $(RESULTS_DIR)/sequential/*.csv
+	rm -f $(RESULTS_DIR)/parallel/*.csv
+	rm -f $(RESULTS_DIR)/openmp/*.csv
+	rm -f $(RESULTS_DIR)/romeo/*.csv
+	rm -f $(RESULTS_DIR)/romeo/sequential/*.csv
+	rm -f $(RESULTS_DIR)/romeo/parallel/*.csv
+	rm -f $(RESULTS_DIR)/romeo/openmp/*.csv
+
+# Clean all PNG plot files
+clean-plots:
+	rm -f $(RESULTS_DIR)/plots/*.png
+	rm -f $(RESULTS_DIR)/romeo/plots/*.png
+	rm -f $(RESULTS_DIR)/romeo/plots_fixed/*.png
+
+# Clean all results (CSV + plots + logs)
+clean-results: clean-csv clean-plots
+	rm -f $(RESULTS_DIR)/romeo/*.out
+	rm -f $(RESULTS_DIR)/romeo/*.err
+	rm -f $(RESULTS_DIR)/romeo/logs/*
+
+# ===== DOCUMENTATION =====
+
+# Generate Doxygen documentation
+docs:
+	@echo "=== Generating Doxygen documentation ==="
+	doxygen docs/Doxyfile
+	@echo ""
+	@echo "Documentation generated: docs/html/index.html"
+
+# Clean documentation
+clean-docs:
+	rm -rf docs/html
+
 # ===== HELP =====
 
 help:
@@ -214,7 +249,15 @@ help:
 	@echo "    make romeo-setup ROMEO_USER=dupont   # Setup for another user"
 	@echo "    make romeo ROMEO_USER=dupont"
 	@echo ""
-	@echo "  clean      - Remove all built files"
+	@echo "Documentation:"
+	@echo "  docs           - Generate Doxygen HTML documentation"
+	@echo "  clean-docs     - Remove generated documentation"
+	@echo ""
+	@echo "Clean targets:"
+	@echo "  clean          - Remove build directory and local CSV files"
+	@echo "  clean-csv      - Remove all CSV files (local + romeo)"
+	@echo "  clean-plots    - Remove all PNG plot files"
+	@echo "  clean-results  - Remove all results (CSV + plots + logs)"
 	@echo ""
 	@echo "Usage examples:"
 	@echo "  make v1 && ./build/golomb_v1 12"
@@ -258,22 +301,22 @@ romeo-deploy:
 # Submit all benchmarks (~200 jobs)
 romeo-bench:
 	@echo "=== Submitting all benchmark jobs ==="
-	@ssh $(ROMEO_HOST) "cd $(ROMEO_DIR) && bash scripts/hpc/run_benchmarks.sh --submit"
+	@ssh $(ROMEO_USER)@$(ROMEO_FULL_HOST) "cd $(ROMEO_DIR) && bash scripts/hpc/run_benchmarks.sh --submit"
 
 # Submit only essential benchmarks (42 jobs - faster)
 romeo-bench-quick:
 	@echo "=== Submitting essential benchmark jobs ==="
-	@ssh $(ROMEO_HOST) "cd $(ROMEO_DIR) && bash scripts/hpc/run_essential.sh"
+	@ssh $(ROMEO_USER)@$(ROMEO_FULL_HOST) "cd $(ROMEO_DIR) && bash scripts/hpc/run_essential.sh"
 
 # Check job status
 romeo-status:
-	@ssh $(ROMEO_HOST) "squeue -u $(ROMEO_USER) --format='%.10i %.20j %.8T %.10M %.6D %R'"
+	@ssh $(ROMEO_USER)@$(ROMEO_FULL_HOST) "squeue -u $(ROMEO_USER) --format='%.10i %.20j %.8T %.10M %.6D %R'"
 
 # Fetch results from Romeo
 romeo-fetch:
 	@echo "=== Fetching results ==="
 	@mkdir -p results/romeo
-	@rsync -avz --progress $(ROMEO_HOST):$(ROMEO_DIR)/results/romeo/ results/romeo/
+	@rsync -avz --progress $(ROMEO_USER)@$(ROMEO_FULL_HOST):$(ROMEO_DIR)/results/romeo/ results/romeo/
 	@echo "Results saved to results/romeo/"
 
 # Wait for jobs and fetch results
@@ -293,4 +336,4 @@ romeo: romeo-deploy romeo-bench
 .PHONY: test test_unit test_openmp_unit test_mpi_unit test_mpi test_v4 test_all
 .PHONY: benchmark benchmark_v1 benchmark_v2 benchmark_v3 benchmark_v4
 .PHONY: romeo romeo-setup romeo-deploy romeo-bench romeo-bench-quick romeo-status romeo-fetch romeo-wait
-.PHONY: clean help
+.PHONY: clean clean-csv clean-plots clean-results clean-docs docs help

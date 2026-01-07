@@ -42,30 +42,204 @@
 // MPI Tags
 // ============================================================================
 
-const int TAG_WORK = 1;
-const int TAG_RESULT = 2;
-const int TAG_DONE = 3;
-const int TAG_BOUND = 4;
+/** @name MPI Message Tags
+ *  Tags used to identify different types of MPI messages in master/worker communication.
+ *  @{
+ */
+const int TAG_WORK = 1;    ///< Master sends work (Subtree) to worker
+const int TAG_RESULT = 2;  ///< Worker sends result back to master
+const int TAG_DONE = 3;    ///< Master signals worker to terminate
+const int TAG_BOUND = 4;   ///< Bound update broadcast via hypercube topology
+/** @} */
 
+/// Interval (in nodes) between MPI bound update checks
 const int BOUND_CHECK_INTERVAL = 50000;
+
+// ============================================================================
+// MPI Tracer (for timeline visualization)
+// ============================================================================
+
+/**
+ * @struct MPIEvent
+ * @brief Represents a single MPI event for timeline visualization.
+ *
+ * Used by MPITracer to record communication and computation events
+ * that can be exported to CSV for visualization tools.
+ */
+struct MPIEvent {
+    int rank;                ///< MPI rank that generated the event
+    double start_ms;         ///< Event start time in milliseconds
+    double end_ms;           ///< Event end time in milliseconds
+    std::string event_type;  ///< Type: "compute", "send", "recv", "idle"
+    std::string tag;         ///< MPI tag name: "TAG_WORK", "TAG_RESULT", etc.
+    int partner_rank;        ///< Partner rank for send/recv events (-1 if N/A)
+};
+
+/**
+ * @class MPITracer
+ * @brief Records MPI events for timeline visualization and performance analysis.
+ *
+ * Collects timing information for compute, send, receive, and idle phases.
+ * Events can be gathered across all ranks and written to CSV for visualization.
+ *
+ * @note Must be enabled explicitly via enable() before recording events
+ */
+class MPITracer {
+public:
+    /**
+     * @brief Constructs a new MPI Tracer.
+     * @param rank     MPI rank of this process
+     * @param baseTime Reference time (typically MPI_Wtime() at start)
+     */
+    MPITracer(int rank, double baseTime) : rank_(rank), baseTime_(baseTime), enabled_(false) {}
+
+    /// Enables event recording
+    void enable() { enabled_ = true; }
+    /// Returns whether tracing is enabled
+    bool isEnabled() const { return enabled_; }
+
+    /// Marks the start of a compute phase
+    void startCompute() {
+        if (!enabled_) return;
+        computeStart_ = MPI_Wtime();
+    }
+
+    /// Marks the end of a compute phase and records the event
+    void endCompute() {
+        if (!enabled_) return;
+        double now = MPI_Wtime();
+        events_.push_back({rank_, toMs(computeStart_), toMs(now), "compute", "", -1});
+    }
+
+    /// Records a send event
+    void recordSend(int dest, int tag, double start, double end) {
+        if (!enabled_) return;
+        events_.push_back({rank_, toMs(start), toMs(end), "send", tagName(tag), dest});
+    }
+
+    /// Records a receive event
+    void recordRecv(int src, int tag, double start, double end) {
+        if (!enabled_) return;
+        events_.push_back({rank_, toMs(start), toMs(end), "recv", tagName(tag), src});
+    }
+
+    /// Records an idle period
+    void recordIdle(double start, double end) {
+        if (!enabled_) return;
+        events_.push_back({rank_, toMs(start), toMs(end), "idle", "", -1});
+    }
+
+    /**
+     * @brief Gathers events from all ranks and writes to CSV.
+     * @param filename Output CSV file path
+     * @param comm     MPI communicator
+     * @note Only rank 0 writes the file
+     */
+    void writeCSV(const std::string& filename, MPI_Comm comm) {
+        if (!enabled_) return;
+
+        // Gather all events to rank 0
+        int mySize = events_.size();
+        std::vector<int> allSizes;
+        int size;
+        MPI_Comm_size(comm, &size);
+
+        if (rank_ == 0) {
+            allSizes.resize(size);
+        }
+        MPI_Gather(&mySize, 1, MPI_INT, allSizes.data(), 1, MPI_INT, 0, comm);
+
+        // Serialize local events
+        std::vector<char> localBuf;
+        for (const auto& e : events_) {
+            std::ostringstream oss;
+            oss << e.rank << "," << std::fixed << std::setprecision(2) << e.start_ms
+                << "," << e.end_ms << "," << e.event_type << "," << e.tag
+                << "," << e.partner_rank << "\n";
+            std::string line = oss.str();
+            localBuf.insert(localBuf.end(), line.begin(), line.end());
+        }
+        localBuf.push_back('\0');
+
+        // Gather sizes
+        int localSize = localBuf.size();
+        std::vector<int> recvSizes(size), displs(size);
+        MPI_Gather(&localSize, 1, MPI_INT, recvSizes.data(), 1, MPI_INT, 0, comm);
+
+        std::vector<char> globalBuf;
+        if (rank_ == 0) {
+            int total = 0;
+            for (int i = 0; i < size; ++i) {
+                displs[i] = total;
+                total += recvSizes[i];
+            }
+            globalBuf.resize(total);
+        }
+
+        MPI_Gatherv(localBuf.data(), localSize, MPI_CHAR,
+                    globalBuf.data(), recvSizes.data(), displs.data(), MPI_CHAR,
+                    0, comm);
+
+        // Write CSV on rank 0
+        if (rank_ == 0) {
+            std::ofstream f(filename);
+            f << "rank,start_ms,end_ms,event_type,tag,partner_rank\n";
+            f.write(globalBuf.data(), globalBuf.size());
+        }
+    }
+
+private:
+    int rank_;                       ///< MPI rank of this process
+    double baseTime_;                ///< Reference time for relative timestamps
+    double computeStart_ = 0;        ///< Start time of current compute phase
+    bool enabled_;                   ///< Whether tracing is active
+    std::vector<MPIEvent> events_;   ///< Collected events
+
+    /// Converts absolute time to milliseconds relative to baseTime
+    double toMs(double t) const { return (t - baseTime_) * 1000.0; }
+
+    /// Converts MPI tag to string name
+    static std::string tagName(int tag) {
+        switch (tag) {
+            case TAG_WORK: return "TAG_WORK";
+            case TAG_RESULT: return "TAG_RESULT";
+            case TAG_DONE: return "TAG_DONE";
+            case TAG_BOUND: return "TAG_BOUND";
+            default: return "";
+        }
+    }
+};
 
 // ============================================================================
 // Subtree (for MPI distribution)
 // ============================================================================
 
+/**
+ * @struct Subtree
+ * @brief Represents a partial search tree for MPI work distribution.
+ *
+ * Contains the prefix marks and used differences needed to resume
+ * search from a specific point in the tree. Sent from master to workers.
+ *
+ * @note Uses compact bit-packed representation for usedDiffs to minimize
+ *       MPI message size.
+ */
 struct Subtree {
-    int marks[MAX_ORDER];
-    int markCount;
-    unsigned char usedDiffs[MAX_LENGTH / 8 + 1];
-    int bestBound;
+    int marks[MAX_ORDER];                    ///< Prefix mark positions
+    int markCount;                           ///< Number of marks in prefix
+    unsigned char usedDiffs[MAX_LENGTH / 8 + 1]; ///< Bit-packed used differences
+    int bestBound;                           ///< Current best bound at distribution time
 
+    /// Sets a difference as used
     void setDiff(int d) {
         if (d >= 0 && d < MAX_LENGTH) usedDiffs[d / 8] |= (1 << (d % 8));
     }
+    /// Tests if a difference is used
     bool testDiff(int d) const {
         if (d < 0 || d >= MAX_LENGTH) return false;
         return usedDiffs[d / 8] & (1 << (d % 8));
     }
+    /// Clears all differences
     void clearDiffs() {
         std::memset(usedDiffs, 0, sizeof(usedDiffs));
     }
@@ -75,37 +249,69 @@ struct Subtree {
 // Result (for MPI communication)
 // ============================================================================
 
+/**
+ * @struct Result
+ * @brief Contains the result of a worker's subtree exploration.
+ *
+ * Sent from workers back to master after completing a subtree.
+ * Includes the best solution found and performance statistics.
+ */
 struct Result {
-    int marks[MAX_ORDER];
-    int length;
-    int order;
-    uint64_t nodesExplored;
-    uint64_t nodesPruned;
-    double timeMs;
+    int marks[MAX_ORDER];    ///< Best solution marks found
+    int length;              ///< Length of best solution
+    int order;               ///< Order of the ruler
+    uint64_t nodesExplored;  ///< Number of nodes explored
+    uint64_t nodesPruned;    ///< Number of nodes pruned
+    double timeMs;           ///< Time spent (currently unused)
 };
 
 // ============================================================================
 // Thread State (cache-aligned)
 // ============================================================================
 
+/**
+ * @struct ThreadState
+ * @brief Thread-local search state for OpenMP threads within an MPI rank.
+ *
+ * Cache-aligned (64 bytes) to prevent false sharing between threads.
+ */
 struct alignas(64) ThreadState {
-    int marks[MAX_ORDER];
-    BitSet256 usedDiffs;
-    int markCount;
-    uint64_t localNodesExplored;
-    uint64_t localNodesPruned;
+    int marks[MAX_ORDER];          ///< Current mark positions
+    BitSet256 usedDiffs;           ///< Used differences bitset
+    int markCount;                 ///< Number of marks placed
+    uint64_t localNodesExplored;   ///< Thread-local explored counter
+    uint64_t localNodesPruned;     ///< Thread-local pruned counter
 };
 
 // ============================================================================
 // Hypercube Utilities
 // ============================================================================
 
+/**
+ * @brief Computes the dimension of a hypercube topology.
+ *
+ * @param size Number of MPI processes
+ * @return Dimension d such that 2^d >= size
+ *
+ * @note For non-power-of-2 sizes, returns floor(log2(size))
+ */
 int hypercubeDimension(int size) {
     int d = 0, s = size;
     while (s > 1) { s /= 2; d++; }
     return d;
 }
 
+/**
+ * @brief Returns the hypercube neighbors of a given rank.
+ *
+ * In a d-dimensional hypercube, rank r has neighbors at r XOR 2^i for i in [0,d).
+ *
+ * @param rank MPI rank to find neighbors for
+ * @param size Total number of MPI processes
+ * @return Vector of neighbor ranks
+ *
+ * @complexity O(log size)
+ */
 std::vector<int> getHypercubeNeighbors(int rank, int size) {
     std::vector<int> neighbors;
     int d = hypercubeDimension(size);
@@ -116,6 +322,17 @@ std::vector<int> getHypercubeNeighbors(int rank, int size) {
     return neighbors;
 }
 
+/**
+ * @brief Broadcasts a new bound to hypercube neighbors.
+ *
+ * Uses non-blocking sends to propagate bound updates with O(log P) latency.
+ *
+ * @param bound New bound value to broadcast
+ * @param rank  Current MPI rank
+ * @param size  Total number of MPI processes
+ *
+ * @note Uses MPI_Isend with immediate request free (fire-and-forget)
+ */
 void broadcastBoundToNeighbors(int bound, int rank, int size) {
     for (int neighbor : getHypercubeNeighbors(rank, size)) {
         MPI_Request request;
@@ -124,6 +341,15 @@ void broadcastBoundToNeighbors(int bound, int rank, int size) {
     }
 }
 
+/**
+ * @brief Checks for incoming bound updates from other ranks.
+ *
+ * Non-blocking probe for TAG_BOUND messages. If a better bound is found,
+ * updates currentBound and returns true.
+ *
+ * @param[in,out] currentBound Current best bound, updated if better found
+ * @return true if bound was updated, false otherwise
+ */
 bool checkForBoundUpdate(int& currentBound) {
     int flag;
     MPI_Status status;
@@ -144,21 +370,47 @@ bool checkForBoundUpdate(int& currentBound) {
 // Hybrid Solver (OpenMP within MPI rank)
 // ============================================================================
 
+/**
+ * @class HybridSolver
+ * @brief Hybrid MPI+OpenMP solver that runs on each MPI worker rank.
+ *
+ * Explores a subtree using OpenMP task parallelism while coordinating
+ * bounds with other MPI ranks via hypercube topology.
+ *
+ * Features:
+ * - OpenMP tasks for intra-node parallelism
+ * - Bound caching to reduce atomic contention
+ * - Periodic MPI bound synchronization
+ * - AVX2 SIMD for difference checking
+ *
+ * @see Subtree, Result
+ */
 class HybridSolver {
 private:
-    int order;
-    std::atomic<int> localBestLength;
-    GolombRuler bestSolution;
-    std::mutex solutionMutex;
+    int order;                              ///< Target ruler order
+    std::atomic<int> localBestLength;       ///< Best length found by this rank
+    GolombRuler bestSolution;               ///< Best solution found
+    std::mutex solutionMutex;               ///< Mutex for updating solution
 
-    std::atomic<uint64_t> totalNodesExplored;
-    std::atomic<uint64_t> totalNodesPruned;
+    std::atomic<uint64_t> totalNodesExplored; ///< Total nodes explored
+    std::atomic<uint64_t> totalNodesPruned;   ///< Total nodes pruned
 
-    int* globalBound;
-    int mpiRank, mpiSize;
-    bool useSIMD;
+    int* globalBound;   ///< Pointer to shared MPI bound (updated by hypercube)
+    int mpiRank;        ///< MPI rank of this process
+    int mpiSize;        ///< Total MPI processes
+    bool useSIMD;       ///< Whether to use AVX2 SIMD
 
 public:
+    /**
+     * @brief Constructs a HybridSolver for a specific subtree.
+     *
+     * @param n       Order of the Golomb ruler
+     * @param subtree Subtree to explore (provides initial bound)
+     * @param bound   Pointer to global MPI bound
+     * @param rank    MPI rank of this process
+     * @param size    Total MPI processes
+     * @param simd    Enable AVX2 SIMD (default: true)
+     */
     HybridSolver(int n, const Subtree& subtree, int* bound, int rank, int size, bool simd = true)
         : order(n), localBestLength(subtree.bestBound),
           totalNodesExplored(0), totalNodesPruned(0),
@@ -166,6 +418,14 @@ public:
         bestSolution.length = subtree.bestBound;
     }
 
+    /**
+     * @brief Explores the subtree using OpenMP parallel tasks.
+     *
+     * Generates tasks for each valid next position and explores them
+     * in parallel using the thread pool.
+     *
+     * @param subtree The subtree to explore
+     */
     void solve(const Subtree& subtree) {
         #pragma omp parallel
         {
@@ -214,6 +474,11 @@ public:
         }
     }
 
+    /**
+     * @brief Returns the result of the subtree exploration.
+     *
+     * @return Result containing best solution and statistics
+     */
     Result getResult() const {
         Result r;
         r.order = order;
@@ -226,6 +491,14 @@ public:
     }
 
 private:
+    /**
+     * @brief Initializes thread state from a subtree.
+     *
+     * Copies marks and differences from the MPI subtree to the local thread state.
+     *
+     * @param[out] state   Thread state to initialize
+     * @param[in]  subtree Subtree to copy from
+     */
     void initializeFromSubtree(ThreadState& state, const Subtree& subtree) {
         state.markCount = subtree.markCount;
         for (int i = 0; i < subtree.markCount; ++i)
@@ -239,6 +512,15 @@ private:
         state.localNodesPruned = 0;
     }
 
+    /**
+     * @brief Recursive branch-and-bound search with MPI bound coordination.
+     *
+     * Explores the search tree, periodically checking for MPI bound updates.
+     * Uses bound caching to minimize atomic and MPI overhead.
+     *
+     * @param[in,out] state Thread-local search state
+     * @param[in]     depth Current depth in search tree
+     */
     void branchAndBound(ThreadState& state, int depth) {
         state.localNodesExplored++;
 
@@ -316,6 +598,15 @@ private:
         }
     }
 
+    /**
+     * @brief Checks differences using scalar implementation.
+     *
+     * @param[in]  state     Current thread state
+     * @param[in]  pos       Candidate position
+     * @param[out] tempDiffs Array to store new differences
+     * @param[out] diffCount Number of differences stored
+     * @return true if position is valid, false if collision found
+     */
     inline bool checkDifferencesScalar(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
         diffCount = 0;
         for (int i = 0; i < state.markCount; ++i) {
@@ -329,6 +620,17 @@ private:
     }
 
 #ifdef USE_AVX2
+    /**
+     * @brief Checks differences using AVX2 SIMD vectorization.
+     *
+     * Processes 8 marks at a time for improved performance.
+     *
+     * @param[in]  state     Current thread state
+     * @param[in]  pos       Candidate position
+     * @param[out] tempDiffs Array to store new differences
+     * @param[out] diffCount Number of differences stored
+     * @return true if position is valid, false if collision found
+     */
     inline bool checkDifferencesAVX2(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
         __m256i vpos = _mm256_set1_epi32(pos);
 
@@ -366,6 +668,17 @@ private:
     }
 #endif
 
+    /**
+     * @brief Thread-safe update of the best solution with MPI broadcast.
+     *
+     * Updates local best and broadcasts to hypercube neighbors if improved.
+     * Uses atomic CAS for the length and mutex for the solution data.
+     *
+     * @param[in] length New solution length
+     * @param[in] state  Thread state containing the solution
+     *
+     * @thread_safety Thread-safe via atomic operations and mutex
+     */
     void updateBestSolution(int length, const ThreadState& state) {
         int current = localBestLength.load(std::memory_order_relaxed);
         while (length < current) {
@@ -376,6 +689,7 @@ private:
                     bestSolution.order = order;
                     bestSolution.marks.assign(state.marks, state.marks + state.markCount);
 
+                    // Broadcast improved bound to hypercube neighbors
                     if (length < *globalBound) {
                         *globalBound = length;
                         broadcastBoundToNeighbors(length, mpiRank, mpiSize);
@@ -391,6 +705,20 @@ private:
 // Subtree Generation
 // ============================================================================
 
+/**
+ * @brief Generates subtrees for MPI work distribution.
+ *
+ * Enumerates all valid partial solutions up to prefixDepth and creates
+ * Subtree objects that can be distributed to workers.
+ *
+ * @param order       Order of the Golomb ruler
+ * @param prefixDepth Depth to enumerate (number of marks in prefix)
+ * @param bound       Initial upper bound for pruning
+ *
+ * @return Vector of Subtrees for distribution
+ *
+ * @note Uses symmetry breaking: first mark <= bound/2
+ */
 std::vector<Subtree> generateSubtrees(int order, int prefixDepth, int bound) {
     std::vector<Subtree> subtrees;
 
@@ -440,6 +768,13 @@ std::vector<Subtree> generateSubtrees(int order, int prefixDepth, int bound) {
 // MPI Datatypes
 // ============================================================================
 
+/**
+ * @brief Creates an MPI datatype for Subtree structure.
+ *
+ * @return Committed MPI_Datatype for sending/receiving Subtrees
+ *
+ * @note Caller must call MPI_Type_free() when done
+ */
 MPI_Datatype createSubtreeType() {
     MPI_Datatype type;
     int bl[] = {MAX_ORDER, 1, MAX_LENGTH/8+1, 1};
@@ -453,6 +788,13 @@ MPI_Datatype createSubtreeType() {
     return type;
 }
 
+/**
+ * @brief Creates an MPI datatype for Result structure.
+ *
+ * @return Committed MPI_Datatype for sending/receiving Results
+ *
+ * @note Caller must call MPI_Type_free() when done
+ */
 MPI_Datatype createResultType() {
     MPI_Datatype type;
     int bl[] = {MAX_ORDER, 1, 1, 1, 1, 1};
@@ -471,6 +813,18 @@ MPI_Datatype createResultType() {
 // CSV Output
 // ============================================================================
 
+/**
+ * @brief Appends benchmark results to a CSV file.
+ *
+ * @param filename   Output CSV file path
+ * @param order      Order of the Golomb ruler
+ * @param mpiProcs   Number of MPI processes
+ * @param ompThreads Number of OpenMP threads per process
+ * @param timeMs     Total execution time in milliseconds
+ * @param nodes      Total nodes explored
+ * @param pruned     Total nodes pruned
+ * @param solution   Best solution found
+ */
 void appendCSV(const std::string& filename, int order, int mpiProcs, int ompThreads,
                double timeMs, uint64_t nodes, uint64_t pruned, const GolombRuler& solution) {
     std::ifstream check(filename);
@@ -495,6 +849,27 @@ void appendCSV(const std::string& filename, int order, int mpiProcs, int ompThre
 // Main
 // ============================================================================
 
+/**
+ * @brief Main entry point for the hybrid MPI+OpenMP Golomb solver.
+ *
+ * Implements a master/worker pattern:
+ * - Rank 0 (master): Generates subtrees, distributes work, collects results
+ * - Ranks 1..N-1 (workers): Receive subtrees, solve using OpenMP, return results
+ *
+ * Bound propagation uses hypercube topology for O(log P) latency.
+ *
+ * @param argc Number of command-line arguments
+ * @param argv Command-line arguments
+ *
+ * @return 0 on success, 1 on error
+ *
+ * Command-line options:
+ * - `<order>`: Required. Order of the Golomb ruler
+ * - `--threads N`: OpenMP threads per rank
+ * - `--depth N`: Prefix depth for work distribution
+ * - `--csv FILE`: Output results to CSV
+ * - `--trace FILE`: Output MPI trace for visualization
+ */
 int main(int argc, char* argv[]) {
     int provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
@@ -517,6 +892,7 @@ int main(int argc, char* argv[]) {
             std::cout << "  --threads N   OpenMP threads per rank (default: auto)\n";
             std::cout << "  --depth N     Prefix depth for work distribution\n";
             std::cout << "  --csv FILE    Save results to CSV\n";
+            std::cout << "  --trace FILE  Save MPI trace for timeline visualization\n";
         }
         MPI_Finalize();
         return 1;
@@ -532,6 +908,7 @@ int main(int argc, char* argv[]) {
     int prefixDepth = (order <= 8) ? 3 : (order <= 10) ? 4 : (order <= 12) ? 5 : 6;
     int numThreads = omp_get_max_threads();
     std::string csvFile;
+    std::string traceFile;
     bool useSIMD = true;
 
     // Safe integer parsing helper
@@ -554,6 +931,7 @@ int main(int argc, char* argv[]) {
         if (arg == "--threads" && i+1 < argc) numThreads = safeParseInt(argv[++i], numThreads, "threads");
         else if (arg == "--depth" && i+1 < argc) prefixDepth = safeParseInt(argv[++i], prefixDepth, "depth");
         else if (arg == "--csv" && i+1 < argc) csvFile = argv[++i];
+        else if (arg == "--trace" && i+1 < argc) traceFile = argv[++i];
         else if (arg == "--no-simd") useSIMD = false;
     }
 
@@ -563,6 +941,12 @@ int main(int argc, char* argv[]) {
     MPI_Datatype resultType = createResultType();
 
     double startTime = MPI_Wtime();
+
+    // Initialize tracer
+    MPITracer tracer(rank, startTime);
+    if (!traceFile.empty()) {
+        tracer.enable();
+    }
 
     if (rank == 0) {
         // === MASTER ===
@@ -667,23 +1051,46 @@ int main(int argc, char* argv[]) {
     } else {
         // === WORKER ===
         int localBound = INT_MAX;
+        double idleStart = MPI_Wtime();
 
         while (true) {
             MPI_Status status;
             Subtree subtree;
+
+            double recvStart = MPI_Wtime();
             MPI_Recv(&subtree, 1, subtreeType, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            double recvEnd = MPI_Wtime();
+
+            // Record idle time before first recv
+            if (idleStart > 0 && recvStart > idleStart + 0.0001) {
+                tracer.recordIdle(idleStart, recvStart);
+            }
+            tracer.recordRecv(0, status.MPI_TAG, recvStart, recvEnd);
 
             if (status.MPI_TAG == TAG_DONE) break;
 
             localBound = std::min(localBound, subtree.bestBound);
 
+            tracer.startCompute();
             HybridSolver solver(order, subtree, &localBound, rank, size, useSIMD);
             solver.solve(subtree);
+            tracer.endCompute();
 
             Result result = solver.getResult();
             result.timeMs = 0;
+
+            double sendStart = MPI_Wtime();
             MPI_Send(&result, 1, resultType, 0, TAG_RESULT, MPI_COMM_WORLD);
+            double sendEnd = MPI_Wtime();
+            tracer.recordSend(0, TAG_RESULT, sendStart, sendEnd);
+
+            idleStart = sendEnd;
         }
+    }
+
+    // Write trace if enabled
+    if (!traceFile.empty()) {
+        tracer.writeCSV(traceFile, MPI_COMM_WORLD);
     }
 
     MPI_Type_free(&subtreeType);

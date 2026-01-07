@@ -37,29 +37,63 @@
 // Search State
 // ============================================================================
 
+/**
+ * @struct SearchState
+ * @brief Holds the current state of the branch-and-bound search.
+ *
+ * This structure maintains all information needed to represent a partial
+ * solution during the backtracking search, including mark positions,
+ * used differences, and performance counters.
+ */
 struct SearchState {
-    int marks[MAX_ORDER];           // Mark positions
-    BitSet256 usedDiffs;            // Difference bitset
-    int markCount;                  // Current number of marks
-    uint64_t nodesExplored;         // Counter
-    uint64_t nodesPruned;           // Counter
+    int marks[MAX_ORDER];           ///< Array of mark positions on the ruler (marks[0] = 0 always)
+    BitSet256 usedDiffs;            ///< Bitset tracking differences already used (for O(1) collision check)
+    int markCount;                  ///< Current number of marks placed on the ruler
+    uint64_t nodesExplored;         ///< Counter for total nodes explored in the search tree
+    uint64_t nodesPruned;           ///< Counter for nodes pruned by bound or feasibility checks
 };
 
 // ============================================================================
 // Sequential Solver
 // ============================================================================
 
+/**
+ * @class SequentialSolver
+ * @brief Sequential branch-and-bound solver for optimal Golomb rulers.
+ *
+ * This class implements a single-threaded branch-and-bound algorithm to find
+ * optimal Golomb rulers. It uses several optimizations:
+ * - Greedy heuristic for initial upper bound
+ * - BitSet256 for O(1) difference collision detection
+ * - AVX2 SIMD for vectorized difference checking (optional)
+ * - Symmetry breaking by limiting first mark position
+ *
+ * @note For multi-threaded solving, use the OpenMP version (v2).
+ * @see GolombRuler, BitSet256
+ */
 class SequentialSolver {
 private:
-    int order;
-    int bestLength;
-    GolombRuler bestSolution;
-    uint64_t totalNodesExplored;
-    uint64_t totalNodesPruned;
-    bool useSIMD;
-    bool verbose;
+    int order;                      ///< Target number of marks (order of the ruler)
+    int bestLength;                 ///< Current best (shortest) ruler length found
+    GolombRuler bestSolution;       ///< Best solution found so far
+    uint64_t totalNodesExplored;    ///< Total nodes explored across all searches
+    uint64_t totalNodesPruned;      ///< Total nodes pruned across all searches
+    bool useSIMD;                   ///< Whether to use AVX2 SIMD optimizations
+    bool verbose;                   ///< Whether to print progress information
 
 public:
+    /**
+     * @brief Constructs a new Sequential Solver.
+     *
+     * Initializes the solver and computes an initial upper bound using
+     * a greedy heuristic algorithm.
+     *
+     * @param n     The order of the Golomb ruler to find (number of marks)
+     * @param simd  Enable AVX2 SIMD optimizations (default: true)
+     * @param verb  Enable verbose output during search (default: false)
+     *
+     * @pre n must be between 2 and MAX_ORDER-1
+     */
     SequentialSolver(int n, bool simd = true, bool verb = false)
         : order(n), bestLength(INT_MAX),
           totalNodesExplored(0), totalNodesPruned(0),
@@ -67,6 +101,18 @@ public:
         findGreedySolution();
     }
 
+    /**
+     * @brief Executes the branch-and-bound search for an optimal Golomb ruler.
+     *
+     * Performs a complete search of the solution space using branch-and-bound
+     * with symmetry breaking. The first mark position is limited to [1, bestLength/2]
+     * to eliminate symmetric solutions.
+     *
+     * @post bestSolution contains the optimal ruler found
+     * @post totalNodesExplored and totalNodesPruned are updated with statistics
+     *
+     * @complexity Exponential in the worst case, but heavily pruned in practice
+     */
     void solve() {
         SearchState state;
         initializeState(state);
@@ -89,6 +135,13 @@ public:
         totalNodesPruned = state.nodesPruned;
     }
 
+    /**
+     * @brief Retrieves the search statistics after solving.
+     *
+     * @return SearchStats structure containing nodes explored, pruned, and best solution
+     *
+     * @pre solve() should have been called first for meaningful results
+     */
     SearchStats getStats() const {
         SearchStats stats;
         stats.nodesExplored = totalNodesExplored;
@@ -98,6 +151,14 @@ public:
     }
 
 private:
+    /**
+     * @brief Initializes a search state for a new search.
+     *
+     * Sets up the initial state with mark 0 at position 0, clears the
+     * difference bitset, and resets all counters.
+     *
+     * @param[out] state The search state to initialize
+     */
     void initializeState(SearchState& state) {
         state.marks[0] = 0;
         state.markCount = 1;
@@ -106,6 +167,18 @@ private:
         state.nodesPruned = 0;
     }
 
+    /**
+     * @brief Computes an initial upper bound using a greedy heuristic.
+     *
+     * Uses a greedy algorithm to quickly find a valid (but not necessarily optimal)
+     * Golomb ruler. This provides an initial upper bound for pruning during
+     * the branch-and-bound search.
+     *
+     * @post bestSolution contains the greedy solution
+     * @post bestLength is set to the greedy solution's length
+     *
+     * @see computeGreedySolution()
+     */
     void findGreedySolution() {
         BitSet256 greedyDiffs;
         greedyDiffs.reset();
@@ -119,6 +192,19 @@ private:
         }
     }
 
+    /**
+     * @brief Recursive branch-and-bound search for Golomb rulers.
+     *
+     * Explores the search tree by trying all valid positions for the next mark.
+     * Uses several pruning strategies:
+     * - Bound pruning: skip positions that cannot lead to better solutions
+     * - Feasibility pruning: skip positions with duplicate differences
+     *
+     * @param[in,out] state Current search state (modified during recursion)
+     * @param[in]     depth Current depth in the search tree (= number of marks to place)
+     *
+     * @note Updates bestLength and bestSolution when a better solution is found
+     */
     void branchAndBound(SearchState& state, int depth) {
         state.nodesExplored++;
 
@@ -144,14 +230,14 @@ private:
 
         // Position iteration
         for (int pos = lastMark + 1; pos <= maxPos; ++pos) {
-            // Early pruning
+            // Early pruning: check if remaining marks can fit
             int remainingMarks = order - depth - 1;
             if (pos + remainingMarks >= currentBest) {
                 state.nodesPruned++;
                 continue;
             }
 
-            // Check all differences
+            // Check all differences for collisions
             int tempDiffs[MAX_ORDER];
             int newDiffCount = 0;
             bool valid;
@@ -189,6 +275,21 @@ private:
         }
     }
 
+    /**
+     * @brief Checks differences using scalar (non-SIMD) implementation.
+     *
+     * Computes all differences between the candidate position and existing marks,
+     * checking for collisions with already-used differences.
+     *
+     * @param[in]  state     Current search state with existing marks
+     * @param[in]  pos       Candidate position for the new mark
+     * @param[out] tempDiffs Array to store the new differences (must have size >= MAX_ORDER)
+     * @param[out] diffCount Number of differences stored in tempDiffs
+     *
+     * @return true if all differences are unique (position is valid), false otherwise
+     *
+     * @complexity O(markCount) - linear in the number of existing marks
+     */
     inline bool checkDifferencesScalar(SearchState& state, int pos, int* tempDiffs, int& diffCount) {
         diffCount = 0;
         for (int i = 0; i < state.markCount; ++i) {
@@ -202,6 +303,26 @@ private:
     }
 
 #ifdef USE_AVX2
+    /**
+     * @brief Checks differences using AVX2 SIMD vectorization.
+     *
+     * Optimized version that processes 8 marks at a time using AVX2 instructions.
+     * Uses a 4-phase approach:
+     * 1. Vectorized difference computation (8 at a time)
+     * 2. Build collision mask from new differences
+     * 3. Vectorized collision detection using hasCollisionAVX2()
+     * 4. Copy results to output array
+     *
+     * @param[in]  state     Current search state with existing marks
+     * @param[in]  pos       Candidate position for the new mark
+     * @param[out] tempDiffs Array to store the new differences (must have size >= MAX_ORDER)
+     * @param[out] diffCount Number of differences stored in tempDiffs
+     *
+     * @return true if all differences are unique (position is valid), false otherwise
+     *
+     * @note Falls back to scalar for remaining marks when markCount % 8 != 0
+     * @complexity O(markCount/8) SIMD operations + O(markCount % 8) scalar operations
+     */
     inline bool checkDifferencesAVX2(SearchState& state, int pos, int* tempDiffs, int& diffCount) {
         __m256i vpos = _mm256_set1_epi32(pos);
 
@@ -255,6 +376,22 @@ private:
 // CSV Output
 // ============================================================================
 
+/**
+ * @brief Appends benchmark results to a CSV file.
+ *
+ * Creates the file with headers if it doesn't exist, otherwise appends
+ * a new row with the benchmark results.
+ *
+ * CSV columns: version, order, threads, time_ms, nodes_explored, nodes_pruned, solution, length
+ *
+ * @param filename Path to the CSV file
+ * @param version  Solver version number (1 for sequential)
+ * @param order    Order of the Golomb ruler solved
+ * @param stats    Search statistics including time and solution
+ * @param threads  Number of threads used (1 for sequential)
+ *
+ * @note Thread-safe for different files, but not for concurrent writes to the same file
+ */
 void appendResultCSV(const std::string& filename, int version, int order,
                      const SearchStats& stats, int threads) {
     std::ifstream checkFile(filename);
@@ -285,6 +422,11 @@ void appendResultCSV(const std::string& filename, int version, int order,
 // Main
 // ============================================================================
 
+/**
+ * @brief Prints usage information and available command-line options.
+ *
+ * @param progName Name of the executable (typically argv[0])
+ */
 void printUsage(const char* progName) {
     std::cout << "Golomb Ruler Solver v1 - Sequential Version\n\n";
     std::cout << "Usage: " << progName << " <order> [options]\n\n";
@@ -298,6 +440,25 @@ void printUsage(const char* progName) {
     std::cout << "  " << progName << " 11 --csv results.csv\n";
 }
 
+/**
+ * @brief Main entry point for the sequential Golomb ruler solver.
+ *
+ * Parses command-line arguments and runs the solver in one of two modes:
+ * - Single solve: Find optimal ruler for the specified order
+ * - Benchmark: Run benchmarks for orders 4 through the specified order
+ *
+ * @param argc Number of command-line arguments
+ * @param argv Array of command-line argument strings
+ *
+ * @return 0 on success, 1 on error (invalid arguments)
+ *
+ * Command-line options:
+ * - `<order>`: Required. The order of the Golomb ruler to find (2 to MAX_ORDER-1)
+ * - `--no-simd`: Disable AVX2 SIMD optimizations
+ * - `--csv <file>`: Save results to CSV file
+ * - `--verbose`: Show progress during search
+ * - `--benchmark`: Run benchmarks for orders 4 to <order>
+ */
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         printUsage(argv[0]);

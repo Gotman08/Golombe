@@ -12,8 +12,11 @@
 #include <iostream>
 #include <sstream>
 
-// Check if marks form a valid Golomb ruler using a set
-// Time complexity: O(n^2) where n = number of marks
+// ============================================================================
+// Validation Functions
+// ============================================================================
+
+/** @copydoc isValidGolombRuler() */
 bool isValidGolombRuler(const std::vector<int>& marks) {
     if (marks.empty()) return false;
     if (marks[0] != 0) return false;  // First mark must be 0
@@ -33,8 +36,7 @@ bool isValidGolombRuler(const std::vector<int>& marks) {
     return true;
 }
 
-// Fast validation using bitset
-// Time complexity: O(n^2) but with O(1) lookup/insert
+/** @copydoc isValidGolombRulerFast() */
 bool isValidGolombRulerFast(const std::vector<int>& marks, std::bitset<MAX_LENGTH>& usedDiffs) {
     if (marks.empty()) return false;
     if (marks[0] != 0) return false;
@@ -54,14 +56,17 @@ bool isValidGolombRulerFast(const std::vector<int>& marks, std::bitset<MAX_LENGT
     return true;
 }
 
-// Check if the given length matches the known optimal for this order
+/** @copydoc isOptimalLength() */
 bool isOptimalLength(int order, int length) {
     if (order < 1 || order > 14) return false;
     return length == OPTIMAL_LENGTHS[order];
 }
 
-// GolombRuler methods
+// ============================================================================
+// GolombRuler Methods
+// ============================================================================
 
+/** @copydoc GolombRuler::toString() */
 std::string GolombRuler::toString() const {
     std::ostringstream oss;
     oss << "[";
@@ -73,10 +78,12 @@ std::string GolombRuler::toString() const {
     return oss.str();
 }
 
+/** @copydoc GolombRuler::print() */
 void GolombRuler::print() const {
     std::cout << "Order " << order << ", Length " << length << ": " << toString() << '\n';
 }
 
+/** @copydoc GolombRuler::isValid() */
 bool GolombRuler::isValid() const {
     return isValidGolombRuler(marks);
 }

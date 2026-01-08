@@ -1,0 +1,14 @@
+=== Golomb Ruler Solver v6: Hardware Optimized ===
+Threads: 8 (HT enabled, 96 physical)
+SIMD/AVX2: Enabled
+Order: 14
+
+=== Golomb G14 ===
+Solution: [0, 4, 6, 20, 35, 52, 59, 77, 78, 86, 89, 99, 122, 127]
+Length: 127
+Time: 1957535.02 ms
+Nodes explored: 98292039794
+Nodes pruned: 338456842436
+Pruning ratio: 77.5%
+
+*** OPTIMAL SOLUTION FOUND ***

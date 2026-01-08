@@ -1,0 +1,55 @@
+Loading x86_64 (no gpu) environment
+Environment loaded. Spack available.
+=== Romeo 2025 Environment ===
+Architecture: x64cpu
+Compiler: g++ (GCC) 11.4.1 20231218 (Red Hat 11.4.1-3)
+MPI: mpirun (Open MPI) 4.1.7
+
+Spack packages:
+-- linux-rhel9-zen4 / no compilers ------------------------------
+openmpi@4.1.7
+==============================================
+  Golomb Ruler Solver - Sequential Benchmark
+  Romeo 2025 - Architecture: x64cpu
+==============================================
+Job ID: 251941
+Node: romeo-c030
+Scratch: /scratch_p/nimarano/251941
+Start time: Mon Jan  5 03:22:34 CET 2026
+Order: 11
+Version: v6
+Threads: 4
+==============================================
+
+Running: OMP_NUM_THREADS=4 ./build/golomb_v6 11 --threads 4
+
+=== Raw Output ===
+=== Golomb Ruler Solver v6: Hardware Optimized ===
+Threads: 4 (HT enabled, 96 physical)
+SIMD/AVX2: Enabled
+Order: 11
+
+=== Golomb G11 ===
+Solution: [0, 2, 8, 18, 25, 39, 44, 59, 68, 71, 72]
+Length: 72
+Time: 1693.62 ms
+Nodes explored: 54401866
+Nodes pruned: 129530515
+Pruning ratio: 70.4%
+
+*** OPTIMAL SOLUTION FOUND ***
+
+=== CSV Result ===
+version,order,threads,time_ms,nodes_explored,nodes_pruned,solution,length
+6,11,4,1693.62,54401866,129530515,"[0, 2, 8, 18, 25, 39, 44, 59, 68, 71, 72]",72
+
+=== Copying results to home directory ===
+'results/romeo/seq_G11_v6_t4.csv' -> '/home/nimarano/golomb/results/romeo/seq_G11_v6_t4.csv'
+'results/romeo/seq_G11_v6_t4_raw.txt' -> '/home/nimarano/golomb/results/romeo/seq_G11_v6_t4_raw.txt'
+
+=== Cleaning up scratch ===
+
+==============================================
+Results saved to: /home/nimarano/golomb/results/romeo/seq_G11_v6_t4.csv
+End time: Mon Jan  5 03:22:36 CET 2026
+==============================================

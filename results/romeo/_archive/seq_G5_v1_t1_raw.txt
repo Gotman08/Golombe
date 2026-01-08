@@ -1,0 +1,11 @@
+=== Golomb Ruler Solver v1: Brute Force ===
+Order: 5, Max length: 22
+Searching...
+
+=== Golomb G5 ===
+Solution: [0, 1, 4, 9, 11]
+Length: 11
+Time: 1.31 ms
+Nodes explored: 7315
+
+*** OPTIMAL SOLUTION FOUND ***

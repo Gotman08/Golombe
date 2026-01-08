@@ -1,0 +1,12 @@
+=== Golomb Ruler Solver v5: Final Sequential ===
+Order: 13 (symmetry enabled)
+
+=== Golomb G13 ===
+Solution: [0, 2, 5, 25, 37, 43, 59, 70, 85, 89, 98, 99, 106]
+Length: 106
+Time: 531630.10 ms
+Nodes explored: 6152081820
+Nodes pruned: 19215812347
+Pruning ratio: 75.7%
+
+*** OPTIMAL SOLUTION FOUND ***

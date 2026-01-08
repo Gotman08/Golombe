@@ -1,0 +1,13 @@
+=== Golomb Ruler Solver v1: Sequential ===
+SIMD/AVX2: Enabled
+Order: 8
+
+=== Golomb G8 ===
+Solution: [0, 1, 4, 9, 15, 22, 32, 34]
+Length: 34
+Time: 3.28 ms
+Nodes explored: 37208
+Nodes pruned: 52868
+Pruning ratio: 58.7%
+
+*** OPTIMAL SOLUTION FOUND ***

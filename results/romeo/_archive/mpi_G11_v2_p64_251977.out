@@ -1,0 +1,57 @@
+Loading x86_64 (no gpu) environment
+Environment loaded. Spack available.
+=== Romeo 2025 Environment ===
+Architecture: x64cpu
+Compiler: g++ (GCC) 11.4.1 20231218 (Red Hat 11.4.1-3)
+MPI: mpirun (Open MPI) 4.1.7
+
+Spack packages:
+-- linux-rhel9-zen4 / no compilers ------------------------------
+openmpi@4.1.7
+==============================================
+  Golomb Ruler Solver - MPI Benchmark
+  Romeo 2025 - Architecture: x64cpu
+==============================================
+Job ID: 251977
+Nodes: romeo-c030
+Scratch: /scratch_p/nimarano/251977
+Start time: Mon Jan  5 03:25:52 CET 2026
+Order: 11
+MPI Version: v2
+Processes: 64
+Nodes requested: 1
+==============================================
+
+Using prefix depth: 5
+
+Running: mpirun -np 64 ./build/golomb_mpi_v2 11 5
+
+=== Raw Output ===
+=== Golomb Ruler Solver - MPI v2: Hypercube ===
+Order: 11, Processes: 64
+Hypercube dimension: 6
+Prefix depth: 5
+Initial bound (greedy): 96
+Subtrees generated: 1843134
+
+=== Results ===
+Solution: [20, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0]
+Length: 72
+Total time: 2435.04 ms
+Total nodes: 44769073
+*** OPTIMAL SOLUTION FOUND ***
+
+=== CSV Result ===
+version,order,procs,time_ms,speedup,efficiency,nodes,solution,length
+2,11,64,2435.04,0,0,44769073,"[20, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0]",72
+
+=== Copying results to home directory ===
+'results/romeo/mpi_G11_v2_p64.csv' -> '/home/nimarano/golomb/results/romeo/mpi_G11_v2_p64.csv'
+'results/romeo/mpi_G11_v2_p64_raw.txt' -> '/home/nimarano/golomb/results/romeo/mpi_G11_v2_p64_raw.txt'
+
+=== Cleaning up scratch ===
+
+==============================================
+Results saved to: /home/nimarano/golomb/results/romeo/mpi_G11_v2_p64.csv
+End time: Mon Jan  5 03:25:56 CET 2026
+==============================================

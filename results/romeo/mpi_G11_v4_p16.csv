@@ -1,0 +1,2 @@
+version,order,mpi_procs,omp_threads,total_workers,time_ms,nodes,pruned,solution,length
+4,11,16,4,64,3006.06,51413181,121111612,"[0, 1, 4, 13, 28, 33, 47, 54, 64, 70, 72]",72

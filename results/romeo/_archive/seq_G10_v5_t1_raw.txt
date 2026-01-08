@@ -1,0 +1,12 @@
+=== Golomb Ruler Solver v5: Final Sequential ===
+Order: 10 (symmetry enabled)
+
+=== Golomb G10 ===
+Solution: [0, 1, 6, 10, 23, 26, 34, 41, 53, 55]
+Length: 55
+Time: 151.04 ms
+Nodes explored: 2466476
+Nodes pruned: 5398765
+Pruning ratio: 68.6%
+
+*** OPTIMAL SOLUTION FOUND ***

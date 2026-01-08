@@ -1,0 +1,17 @@
+Loading x86_64 (no gpu) environment
+Environment loaded. Spack available.
+=== Romeo 2025 Environment ===
+Architecture: x64cpu
+Compiler: g++ (GCC) 11.4.1 20231218 (Red Hat 11.4.1-3)
+MPI: mpirun (Open MPI) 4.1.7
+
+Spack packages:
+-- linux-rhel9-zen4 / no compilers ------------------------------
+openmpi@4.1.7
+=== G17 MPI v3 with 64 processes ===
+Start: Sun Jan  4 04:16:16 CET 2026
+=== Golomb Ruler Solver - MPI v3: Optimized ===
+Order: 17, Processes: 64
+Prefix depth: 5
+Initial bound: 251
+Subtrees: 113632070

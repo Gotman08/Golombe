@@ -1,0 +1,14 @@
+=== Golomb Ruler Solver v2: OpenMP ===
+Threads: 96 (HT enabled, 96 physical)
+SIMD/AVX2: Enabled
+Order: 9
+
+=== Golomb G9 ===
+Solution: [0, 1, 5, 12, 25, 27, 35, 41, 44]
+Length: 44
+Time: 17.30 ms
+Nodes explored: 510625
+Nodes pruned: 869338
+Pruning ratio: 63.0%
+
+*** OPTIMAL SOLUTION FOUND ***

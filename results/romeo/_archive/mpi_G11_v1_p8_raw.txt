@@ -1,0 +1,12 @@
+=== Golomb Ruler Solver - MPI v1: Basic ===
+Order: 11, Processes: 8
+Prefix depth: 5
+Initial bound (greedy): 96
+Subtrees generated: 1843134
+
+=== Results ===
+Solution: [0, 1, 4, 13, 28, 33, 47, 54, 64, 70, 72]
+Length: 72
+Total time: 1453.34 ms
+Total nodes: 44497549
+*** OPTIMAL SOLUTION FOUND ***

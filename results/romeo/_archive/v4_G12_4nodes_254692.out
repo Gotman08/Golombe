@@ -1,0 +1,20 @@
+=== Golomb Ruler Solver v4: Pure Hypercube ===
+Order: 12
+MPI Processes: 32
+OpenMP Threads/rank: 8
+Total workers: 256
+Prefix depth: 5
+Hypercube dimension: 5
+SIMD/AVX2: Enabled
+Initial bound: 122
+Total subtrees: 5303650
+Subtrees per rank: ~165739
+
+=== Golomb G12 ===
+Solution: [0, 9, 10, 17, 30, 42, 45, 56, 61, 79, 83, 85]
+Length: 85
+Time: 12576.20 ms
+Nodes explored: 690059260
+Nodes pruned: 1915512674
+Best found by rank: 8
+*** OPTIMAL SOLUTION FOUND ***

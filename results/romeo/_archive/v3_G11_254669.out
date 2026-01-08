@@ -1,0 +1,6 @@
+/home/nimarano/golomb/setup_env.sh: line 8: romeo_load_x64cpu_env: command not found
+=== Romeo 2025 Environment ===
+Architecture: x64cpu
+Compiler: g++ (GCC) 11.4.1 20231218 (Red Hat 11.4.1-3)
+Warning: mpirun not found in PATH
+/var/spool/slurmd/job254669/slurm_script: line 4: spack: command not found

@@ -1,0 +1,12 @@
+=== Golomb Ruler Solver v5: Final Sequential ===
+Order: 12 (symmetry enabled)
+
+=== Golomb G12 ===
+Solution: [0, 2, 6, 24, 29, 40, 43, 55, 68, 75, 76, 85]
+Length: 85
+Time: 27683.85 ms
+Nodes explored: 359344315
+Nodes pruned: 1012743778
+Pruning ratio: 73.8%
+
+*** OPTIMAL SOLUTION FOUND ***

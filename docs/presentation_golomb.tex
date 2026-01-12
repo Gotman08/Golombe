@@ -1,0 +1,1110 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% PRESENTATION BEAMER - GOLOMB RULER SOLVER
+%% Master 1 - Calcul Haute Performance
+%% Universite de Reims Champagne-Ardenne
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[aspectratio=169,9pt]{beamer}
+
+%% ============================================================================
+%% THEME ET COULEURS
+%% ============================================================================
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% Couleurs personnalisees URCA
+\definecolor{urcablue}{RGB}{0,84,147}
+\definecolor{urcagray}{RGB}{88,89,91}
+\definecolor{lightblue}{RGB}{200,220,240}
+\definecolor{darkgreen}{RGB}{0,100,0}
+\definecolor{codebg}{RGB}{245,245,245}
+
+\setbeamercolor{palette primary}{bg=urcablue,fg=white}
+\setbeamercolor{palette secondary}{bg=urcablue!80,fg=white}
+\setbeamercolor{palette tertiary}{bg=urcablue!60,fg=white}
+\setbeamercolor{structure}{fg=urcablue}
+\setbeamercolor{title}{fg=urcablue}
+\setbeamercolor{frametitle}{fg=urcablue,bg=lightblue!30}
+\setbeamercolor{block title}{bg=urcablue,fg=white}
+\setbeamercolor{block body}{bg=lightblue!20}
+\setbeamercolor{block title example}{bg=darkgreen!80,fg=white}
+\setbeamercolor{block body example}{bg=green!10}
+
+% Reduire marges
+\setbeamersize{text margin left=5mm,text margin right=5mm}
+
+%% ============================================================================
+%% PACKAGES
+%% ============================================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,calc,fit,backgrounds,decorations.pathreplacing,matrix,3d,arrows.meta}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{siunitx}
+\usepackage{multicol}
+
+%% ============================================================================
+%% CONFIGURATION LISTINGS
+%% ============================================================================
+\lstdefinestyle{cppstyle}{
+    language=C++,
+    basicstyle=\ttfamily\fontsize{6}{7}\selectfont,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{darkgreen},
+    stringstyle=\color{red},
+    backgroundcolor=\color{codebg},
+    frame=single,
+    breaklines=true,
+    showstringspaces=false,
+    columns=flexible,
+    morekeywords={alignas,atomic,uint64_t,__m256i,MPI_Comm,MPI_Request}
+}
+\lstset{style=cppstyle}
+
+%% ============================================================================
+%% INFORMATIONS
+%% ============================================================================
+\title[Golomb Ruler Solver]{Solveur de Regles de Golomb}
+\subtitle{Optimisation SIMD et Parallelisation sur Cluster HPC}
+\author[Nicolas]{Nicolas}
+\institute[URCA]{
+    Universite de Reims Champagne-Ardenne\\
+    Master 1 -- Calcul Haute Performance / Imagerie / IA
+}
+\date{Annee 2025--2026}
+
+%% ============================================================================
+%% DEBUT DU DOCUMENT
+%% ============================================================================
+\begin{document}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 1 : PAGE DE TITRE
+%% ----------------------------------------------------------------------------
+\begin{frame}[plain]
+    \titlepage
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 2 : SOMMAIRE
+%% ----------------------------------------------------------------------------
+\begin{frame}{Sommaire}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \textbf{1. Introduction}
+            \begin{itemize}\small
+                \item Definition des regles de Golomb
+                \item Probleme d'optimisation
+            \end{itemize}
+            \vspace{0.2cm}
+            \textbf{2. Algorithme}
+            \begin{itemize}\small
+                \item Branch \& Bound
+                \item Strategies de pruning
+                \item BitSet256 et AVX2
+            \end{itemize}
+            \vspace{0.2cm}
+            \textbf{3. Architecture}
+            \begin{itemize}\small
+                \item 5 versions : v1 a v5
+                \item OpenMP, MPI, Pure MPI
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \textbf{4. Propagation O(log P)}
+            \begin{itemize}\small
+                \item Topologie hypercube
+                \item Algorithme de propagation
+            \end{itemize}
+            \vspace{0.2cm}
+            \textbf{5. Resultats}
+            \begin{itemize}\small
+                \item Scaling OpenMP
+                \item Comparaison v3 vs v4
+                \item Efficacite parallele
+            \end{itemize}
+            \vspace{0.2cm}
+            \textbf{6. Conclusion}
+            \begin{itemize}\small
+                \item Contributions
+                \item Perspectives
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ============================================================================
+%% SECTION 1 : INTRODUCTION
+%% ============================================================================
+\section{Introduction}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 3 : QU'EST-CE QU'UNE REGLE DE GOLOMB ?
+%% ----------------------------------------------------------------------------
+\begin{frame}{Qu'est-ce qu'une Regle de Golomb ?}
+    \begin{columns}[T]
+        \begin{column}{0.52\textwidth}
+            \begin{block}{Definition}
+                Une \textbf{regle de Golomb} d'ordre $n$ est un ensemble de $n$ entiers (marques) tel que toutes les \textbf{differences par paires sont distinctes}.
+            \end{block}
+            \vspace{0.1cm}
+            \textbf{Exemple : G4 = [0, 1, 4, 6]}
+            \begin{itemize}\small
+                \item Differences : $\{1, 2, 3, 4, 5, 6\}$ -- toutes uniques
+                \item Longueur : 6 (optimale)
+            \end{itemize}
+            \vspace{0.1cm}
+            \begin{alertblock}{Applications}
+                \begin{itemize}\small
+                    \item Radio-astronomie (antennes)
+                    \item Codes correcteurs d'erreurs
+                    \item Traitement du signal
+                \end{itemize}
+            \end{alertblock}
+        \end{column}
+        \begin{column}{0.45\textwidth}
+            \centering
+            \begin{tikzpicture}[scale=0.75]
+                % Ruler background
+                \fill[lightblue!40] (0,-0.25) rectangle (6,0.25);
+                \draw[thick] (0,-0.25) rectangle (6,0.25);
+                % Marks
+                \foreach \x in {0,1,4,6} {
+                    \fill[urcablue] (\x,0) circle (0.12);
+                    \draw[thick,urcablue] (\x,-0.25) -- (\x,0.25);
+                    \node[below,font=\small] at (\x,-0.35) {\textbf{\x}};
+                }
+                % Differences arrows
+                \draw[<->,red,thick] (0,0.5) -- node[above,font=\tiny] {1} (1,0.5);
+                \draw[<->,orange,thick] (1,0.75) -- node[above,font=\tiny] {3} (4,0.75);
+                \draw[<->,green!60!black,thick] (4,0.5) -- node[above,font=\tiny] {2} (6,0.5);
+                \draw[<->,blue,thick] (0,1.0) -- node[above,font=\tiny] {4} (4,1.0);
+                \draw[<->,purple,thick] (1,1.25) -- node[above,font=\tiny] {5} (6,1.25);
+                \draw[<->,brown,thick] (0,1.5) -- node[above,font=\tiny] {6} (6,1.5);
+            \end{tikzpicture}
+            \vspace{0.2cm}
+            {\small 6 differences pour $\binom{4}{2} = 6$ paires}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 4 : PROBLEME D'OPTIMISATION
+%% ----------------------------------------------------------------------------
+\begin{frame}{Le Probleme d'Optimisation}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Objectif}
+                Trouver la regle de Golomb \textbf{optimale} (la plus courte) pour un ordre $n$ donne.
+            \end{block}
+            \vspace{0.1cm}
+            \begin{alertblock}{Complexite}
+                \begin{itemize}\small
+                    \item Probleme \textbf{NP-difficile}
+                    \item Espace de recherche : $O(L^n)$
+                    \item G27 trouve en 2014 (calcul mondial)
+                \end{itemize}
+            \end{alertblock}
+            \vspace{0.1cm}
+            \textbf{Borne inferieure (Erdos-Turan) :}
+            \[ L \geq \frac{n(n-1)}{2} \]
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \centering
+            \textbf{Longueurs Optimales Connues}\\[0.1cm]
+            \small
+            \begin{tabular}{cc|cc}
+                \toprule
+                \textbf{Ordre} & \textbf{Long.} & \textbf{Ordre} & \textbf{Long.} \\
+                \midrule
+                4 & 6 & 10 & 55 \\
+                5 & 11 & 11 & 72 \\
+                6 & 17 & 12 & 85 \\
+                7 & 25 & 13 & 106 \\
+                8 & 34 & 14 & 127 \\
+                9 & 44 & 15 & 151 \\
+                \bottomrule
+            \end{tabular}
+            \vspace{0.2cm}
+            {\footnotesize Source : OEIS A003022}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ============================================================================
+%% SECTION 2 : ALGORITHME
+%% ============================================================================
+\section{Algorithme}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 5 : BRANCH & BOUND
+%% ----------------------------------------------------------------------------
+\begin{frame}[shrink=5]{Branch \& Bound avec Backtracking}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Principe}
+                Exploration systematique de l'arbre avec \textbf{elagage} des branches non prometteuses.
+            \end{block}
+            \vspace{0.1cm}
+            {\small\textbf{Algorithme :}}
+            \begin{enumerate}\footnotesize
+                \item Si profondeur = ordre $\rightarrow$ solution trouvee
+                \item Pour chaque position valide :
+                \begin{itemize}\footnotesize
+                    \item Placer la marque
+                    \item Verifier les differences
+                    \item Recursion
+                    \item Backtrack
+                \end{itemize}
+            \end{enumerate}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \centering
+            \textbf{Arbre de recherche (G4)}\\[0.1cm]
+            \begin{tikzpicture}[scale=0.6,
+                level 1/.style={sibling distance=2.5cm},
+                level 2/.style={sibling distance=1.2cm},
+                every node/.style={circle,draw,minimum size=0.5cm,font=\tiny}]
+                \node[fill=lightblue] {0}
+                    child {node[fill=lightblue] {1}
+                        child {node[fill=lightblue] {3}
+                            child {node[fill=green!40] {6}}
+                        }
+                        child {node[fill=lightblue] {4}
+                            child {node[fill=green!40] {6}}
+                        }
+                    }
+                    child {node[fill=lightblue] {2}
+                        child {node[fill=red!30] {4}}
+                        child {node[fill=red!30] {5}}
+                    }
+                    child {node[fill=red!30] {3}};
+            \end{tikzpicture}
+            \vspace{0.1cm}
+            {\scriptsize \textcolor{green!60!black}{Vert} = solution, \textcolor{red}{Rouge} = elague}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 6 : STRATEGIES DE PRUNING
+%% ----------------------------------------------------------------------------
+\begin{frame}[shrink=5]{Strategies de Pruning}
+    \begin{columns}[T]
+        \begin{column}{0.32\textwidth}
+            \begin{block}{1. Borne Gloutonne}
+                \small
+                Solution gloutonne calculee \textbf{avant} la recherche.
+                \vspace{0.1cm}
+                {\footnotesize Placer chaque marque a la plus petite position valide.}
+                \vspace{0.1cm}
+                \textbf{Impact :} borne $\sim$80\% plus serree
+            \end{block}
+        \end{column}
+        \begin{column}{0.32\textwidth}
+            \begin{block}{2. Cassure Symetrie}
+                \small
+                $marks[1] \leq \frac{L}{2}$
+                \vspace{0.1cm}
+                {\footnotesize Regles reversibles : [0,$a_2$,...] $\equiv$ [0,$L-a_n$,...]}
+                \vspace{0.1cm}
+                \textbf{Impact :} \textcolor{red}{\textbf{-50\%}} espace
+            \end{block}
+        \end{column}
+        \begin{column}{0.32\textwidth}
+            \begin{block}{3. Pruning Triangulaire}
+                \small
+                $k$ marques restantes $\Rightarrow$ $\frac{k(k+1)}{2}$ min
+                \vspace{0.1cm}
+                {\footnotesize Si impossible d'ameliorer : elaguer}
+                \vspace{0.1cm}
+                \textbf{Impact :} detection precoce
+            \end{block}
+        \end{column}
+    \end{columns}
+    \vspace{0.2cm}
+    \centering
+    \begin{tikzpicture}
+        \node[draw,rounded corners,fill=green!20,font=\small] {
+            \textbf{Reduction totale : $\sim$22x} -- G10 : 3.6M noeuds $\rightarrow$ 2.5M explores
+        };
+    \end{tikzpicture}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 7 : BITSET256
+%% ----------------------------------------------------------------------------
+\begin{frame}[fragile,shrink=5]{BitSet256 -- Detection O(1)}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Probleme}
+                Verifier si une difference existe :
+                \begin{itemize}\small
+                    \item \texttt{std::set} : O($\log n$)
+                    \item Boucle naive : O($n^2$)
+                \end{itemize}
+            \end{block}
+            \vspace{0.1cm}
+            \begin{exampleblock}{Solution : BitSet256}
+                \small
+                Structure 256 bits alignee 32 bytes :
+                \begin{itemize}\small
+                    \item Test/Set en \textbf{O(1)}
+                    \item Cache L1 friendly
+                    \item Compatible AVX2
+                \end{itemize}
+            \end{exampleblock}
+            \vspace{0.1cm}
+\begin{lstlisting}
+struct alignas(32) BitSet256 {
+  uint64_t words[4]; // 256 bits
+  bool test(int bit) const {
+    return words[bit/64] &
+           (1ULL << (bit % 64));
+  }
+  void set(int bit) {
+    words[bit/64] |= (1ULL << (bit%64));
+  }
+};
+\end{lstlisting}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \centering
+            \textbf{Structure Memoire}\\[0.2cm]
+            \begin{tikzpicture}[scale=0.7]
+                \foreach \i in {0,...,3} {
+                    \draw[fill=lightblue!50] (0,\i*0.7) rectangle (5,\i*0.7+0.5);
+                    \node[left,font=\tiny] at (-0.1,\i*0.7+0.25) {word[\i]};
+                    \node[font=\tiny] at (2.5,\i*0.7+0.25) {64 bits};
+                }
+                \draw[decorate,decoration={brace,amplitude=4pt}]
+                    (5.2,0) -- (5.2,2.9) node[midway,right,xshift=2pt,font=\small] {32B};
+            \end{tikzpicture}
+            \vspace{0.3cm}
+            \small
+            \begin{tabular}{lc}
+                \toprule
+                \textbf{Operation} & \textbf{Complexite} \\
+                \midrule
+                test(bit) & O(1) \\
+                set(bit) & O(1) \\
+                collision() & O(1) \\
+                \bottomrule
+            \end{tabular}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 8 : AVX2 SIMD
+%% ----------------------------------------------------------------------------
+\begin{frame}[fragile,shrink=5]{Optimisation AVX2 SIMD}
+    \begin{columns}[T]
+        \begin{column}{0.52\textwidth}
+            \begin{block}{Principe}
+                Instructions vectorielles AVX2 :
+                \begin{enumerate}\small
+                    \item Calculer 8 differences simultanement
+                    \item Detecter collisions sur 256 bits
+                \end{enumerate}
+            \end{block}
+            \vspace{0.1cm}
+\begin{lstlisting}
+// 8 differences en 1 instruction
+__m256i vpos = _mm256_set1_epi32(pos);
+__m256i vmarks = _mm256_loadu_si256(
+                   (__m256i*)&marks[i]);
+__m256i vdiffs = _mm256_sub_epi32(
+                   vpos, vmarks);
+
+// Detection collision 256-bit
+__m256i result = _mm256_and_si256(
+                   used.data, check.data);
+if (!_mm256_testz_si256(result, result))
+    return false; // Collision!
+\end{lstlisting}
+        \end{column}
+        \begin{column}{0.45\textwidth}
+            \centering
+            \textbf{Vectorisation}\\[0.1cm]
+            \begin{tikzpicture}[scale=0.6]
+                \node[font=\tiny] at (-1.2,2.5) {marks:};
+                \foreach \i/\v in {0/0,1/1,2/4,3/9,4/11,5/13,6/20,7/25} {
+                    \draw[fill=lightblue] (\i*0.6,2.2) rectangle (\i*0.6+0.5,2.7);
+                    \node[font=\tiny] at (\i*0.6+0.25,2.45) {\v};
+                }
+                \node[font=\tiny] at (-1.2,1.5) {pos=30:};
+                \foreach \i in {0,...,7} {
+                    \draw[fill=orange!40] (\i*0.6,1.2) rectangle (\i*0.6+0.5,1.7);
+                    \node[font=\tiny] at (\i*0.6+0.25,1.45) {30};
+                }
+                \draw[->,thick] (2.4,1.1) -- (2.4,0.8);
+                \node[font=\tiny] at (-1.2,0.4) {diffs:};
+                \foreach \i/\v in {0/30,1/29,2/26,3/21,4/19,5/17,6/10,7/5} {
+                    \draw[fill=green!40] (\i*0.6,0.1) rectangle (\i*0.6+0.5,0.6);
+                    \node[font=\tiny] at (\i*0.6+0.25,0.35) {\v};
+                }
+            \end{tikzpicture}
+            \vspace{0.2cm}
+            \small
+            \begin{tabular}{lc}
+                \toprule
+                \textbf{Metrique} & \textbf{Valeur} \\
+                \midrule
+                Throughput & 8 diff/cycle \\
+                Seuil & $\geq$4 marks \\
+                Speedup & $\sim$2-3x \\
+                \bottomrule
+            \end{tabular}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ============================================================================
+%% SECTION 3 : ARCHITECTURE
+%% ============================================================================
+\section{Architecture des 5 Versions}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 9 : VUE D'ENSEMBLE
+%% ----------------------------------------------------------------------------
+\begin{frame}[shrink=5]{Vue d'Ensemble des Versions}
+    \centering
+    \begin{tikzpicture}[
+        box/.style={draw,rounded corners,minimum width=2cm,minimum height=0.9cm,align=center,font=\footnotesize},
+        arrow/.style={->,>=stealth,thick,urcablue}
+    ]
+        \node[box,fill=blue!20] (v1) at (0,0) {\textbf{v1}\\Seq.};
+        \node[box,fill=orange!30] (v2) at (2.8,0) {\textbf{v2}\\OpenMP};
+        \node[box,fill=green!30] (v3) at (5.6,0) {\textbf{v3}\\Master/W.};
+        \node[box,fill=purple!30] (v4) at (8.4,0) {\textbf{v4}\\Hypercube};
+        \node[box,fill=cyan!30] (v5) at (11.2,0) {\textbf{v5}\\Pure MPI};
+        \draw[arrow] (v1) -- (v2);
+        \draw[arrow] (v2) -- (v3);
+        \draw[arrow] (v3) -- (v4);
+        \draw[arrow] (v4) -- (v5);
+        \node[above,font=\tiny] at (1.4,0.55) {+OMP};
+        \node[above,font=\tiny] at (4.2,0.55) {+MPI};
+        \node[above,font=\tiny] at (7,0.55) {P2P};
+        \node[above,font=\tiny] at (9.8,0.55) {-OMP};
+    \end{tikzpicture}
+    \vspace{0.2cm}
+    \footnotesize
+    \begin{tabular}{lccccc}
+        \toprule
+        & \textbf{v1} & \textbf{v2} & \textbf{v3} & \textbf{v4} & \textbf{v5} \\
+        \midrule
+        Parallelisme & -- & Threads & Proc+Thr & Proc+Thr & Processus \\
+        OpenMP & Non & Oui & Oui & Oui & \textbf{Non} \\
+        Coordination & -- & Implicite & Master & P2P & P2P \\
+        Comm. Bornes & -- & Atomique & O(P) & O(log P) & O(log P) \\
+        \bottomrule
+    \end{tabular}
+    \vspace{0.1cm}
+    {\scriptsize v5 = v4 sans OpenMP, pour scaling MPI pur (64-256+ rangs)}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 10 : COMPARAISON COMPLETE V1-V5
+%% ----------------------------------------------------------------------------
+\begin{frame}[shrink=5]{Comparaison Complete des 5 Versions}
+    \centering
+    \footnotesize
+    \begin{tabular}{l|ccccc}
+        \toprule
+        \textbf{Critere} & \textbf{v1} & \textbf{v2} & \textbf{v3} & \textbf{v4} & \textbf{v5} \\
+        \midrule
+        \textbf{Type} & Sequentiel & OpenMP & Master/Worker & Hypercube & Pure MPI \\
+        \textbf{Parallelisme} & Aucun & Threads & Proc+Threads & Proc+Threads & Processus \\
+        \textbf{OpenMP} & \textcolor{red}{Non} & \textcolor{green!60!black}{Oui} & \textcolor{green!60!black}{Oui} & \textcolor{green!60!black}{Oui} & \textcolor{red}{Non} \\
+        \textbf{MPI} & \textcolor{red}{Non} & \textcolor{red}{Non} & \textcolor{green!60!black}{Oui} & \textcolor{green!60!black}{Oui} & \textcolor{green!60!black}{Oui} \\
+        \textbf{Coordination} & -- & Atomique & Master & P2P & P2P \\
+        \textbf{Prop. bornes} & -- & O(1) local & O(P) & \textcolor{blue}{\textbf{O(log P)}} & \textcolor{blue}{\textbf{O(log P)}} \\
+        \textbf{Goulot} & CPU & Contention & \textcolor{red}{Master} & \textcolor{green!60!black}{Aucun} & \textcolor{green!60!black}{Aucun} \\
+        \textbf{Scalabilite} & 1 core & $\sim$64t & $\sim$16p & 256+ p & 512+ p \\
+        \bottomrule
+    \end{tabular}
+    \vspace{0.3cm}
+
+    \begin{tikzpicture}[
+        box/.style={draw,rounded corners,minimum width=1.4cm,minimum height=0.6cm,align=center,font=\scriptsize},
+        arrow/.style={->,>=stealth,thick}
+    ]
+        \node[box,fill=blue!20] (v1) at (0,0) {v1};
+        \node[box,fill=orange!30] (v2) at (2.5,0) {v2};
+        \node[box,fill=green!30] (v3) at (5,0) {v3};
+        \node[box,fill=purple!30] (v4) at (7.5,0) {v4};
+        \node[box,fill=cyan!30] (v5) at (10,0) {v5};
+        \draw[arrow] (v1) -- node[above,font=\tiny] {+OMP} (v2);
+        \draw[arrow] (v2) -- node[above,font=\tiny] {+MPI} (v3);
+        \draw[arrow] (v3) -- node[above,font=\tiny] {P2P} (v4);
+        \draw[arrow] (v4) -- node[above,font=\tiny] {-OMP} (v5);
+        \node[below,font=\tiny] at (v1.south) {Baseline};
+        \node[below,font=\tiny] at (v2.south) {Multi-thread};
+        \node[below,font=\tiny] at (v3.south) {Distribution};
+        \node[below,font=\tiny] at (v4.south) {Decentralise};
+        \node[below,font=\tiny] at (v5.south) {Scaling MPI};
+    \end{tikzpicture}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 11 : V1 et V2
+%% ----------------------------------------------------------------------------
+\begin{frame}[fragile]{v1 Sequentiel \& v2 OpenMP}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{v1 -- Baseline}
+                \begin{itemize}\small
+                    \item Single-thread + AVX2
+                    \item Reference pour speedup
+                    \item $\sim$5s pour G11
+                \end{itemize}
+            \end{block}
+            \begin{block}{v2 -- OpenMP Tasks}
+                \begin{itemize}\small
+                    \item \texttt{\#pragma omp task}
+                    \item Cutoff depth adaptatif
+                    \item G$\leq$7: d=1, G$\leq$9: d=2, G$\geq$10: d=3
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{exampleblock}{Bound Caching}
+                \small
+                Cache local avec refresh periodique :
+\begin{lstlisting}
+int localBest = bestLength;
+int counter = 0;
+// Dans la boucle :
+if (++counter % 16384 == 0)
+  localBest = atomic_load(&bestLength);
+\end{lstlisting}
+                \textbf{Impact :} -90\% ops atomiques
+            \end{exampleblock}
+            \begin{alertblock}{Cache Alignment}
+                \small
+                Structures alignees 64 bytes\\
+                $\rightarrow$ Pas de false sharing
+            \end{alertblock}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 11 : V3 MASTER/WORKER
+%% ----------------------------------------------------------------------------
+\begin{frame}{v3 Hybrid MPI+OpenMP (Master/Worker)}
+    \begin{columns}[T]
+        \begin{column}{0.52\textwidth}
+            \centering
+            \textbf{Architecture}\\[0.1cm]
+            \begin{tikzpicture}[scale=0.7,
+                master/.style={draw,circle,fill=red!30,minimum size=1cm,font=\small},
+                worker/.style={draw,circle,fill=blue!30,minimum size=0.7cm,font=\tiny}
+            ]
+                \node[master] (m) at (0,0) {Master};
+                \foreach \i/\a in {1/45,2/90,3/135,4/225,5/270,6/315} {
+                    \node[worker] (w\i) at (\a:2) {W\i};
+                    \draw[->,blue,thick] (m) -- (w\i);
+                    \draw[->,green!60!black,dashed] (w\i) -- (m);
+                }
+                \node[below,font=\tiny] at (0,-2.5) {Distribution dynamique};
+            \end{tikzpicture}
+        \end{column}
+        \begin{column}{0.45\textwidth}
+            \begin{block}{MPI Tags}
+                \small
+                \begin{itemize}
+                    \item \texttt{TAG\_WORK=1} : travail
+                    \item \texttt{TAG\_RESULT=2} : resultat
+                    \item \texttt{TAG\_BOUND=4} : borne
+                    \item \texttt{TAG\_DONE=3} : fin
+                \end{itemize}
+            \end{block}
+            \begin{alertblock}{Profondeur prefixe}
+                \small
+                G$\leq$8: d=3, G$\leq$10: d=4\\
+                G$\leq$12: d=5, G$>$12: d=6
+            \end{alertblock}
+            \begin{block}{Limite}
+                \small
+                Master = goulot pour $>$16 procs
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 12 : V4 HYPERCUBE
+%% ----------------------------------------------------------------------------
+\begin{frame}{v4 Pure Hypercube MPI+OpenMP}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Architecture Decentralisee}
+                \begin{itemize}\small
+                    \item Pas de master $\rightarrow$ \textbf{pas de goulot}
+                    \item Distribution statique
+                    \item Communication peer-to-peer
+                \end{itemize}
+            \end{block}
+            \vspace{0.1cm}
+            \centering
+            \textbf{Hypercube 8 processus}\\[0.1cm]
+            \begin{tikzpicture}[scale=1]
+                \coordinate (A) at (0,0);
+                \coordinate (B) at (1.2,0);
+                \coordinate (C) at (1.2,1);
+                \coordinate (D) at (0,1);
+                \coordinate (E) at (0.5,0.4);
+                \coordinate (F) at (1.7,0.4);
+                \coordinate (G) at (1.7,1.4);
+                \coordinate (H) at (0.5,1.4);
+                \draw[thick,blue!60] (A)--(B)--(C)--(D)--cycle;
+                \draw[thick,blue!60] (E)--(F)--(G)--(H)--cycle;
+                \draw[thick,blue!60] (A)--(E) (B)--(F) (C)--(G) (D)--(H);
+                \foreach \n/\c in {A/0,B/1,C/3,D/2,E/4,F/5,G/7,H/6} {
+                    \fill[urcablue] (\n) circle (0.1);
+                    \node[font=\tiny,white] at (\n) {\c};
+                }
+            \end{tikzpicture}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{exampleblock}{Avantages v4 vs v3}
+                \begin{itemize}\small
+                    \item[$\checkmark$] Scalabilite 1000+ procs
+                    \item[$\checkmark$] Communication O(log P)
+                    \item[$\checkmark$] Equilibrage previsible
+                    \item[$\checkmark$] Reproductibilite
+                \end{itemize}
+            \end{exampleblock}
+            \vspace{0.1cm}
+            \begin{block}{Allocation travail}
+                \small
+                Chaque rang $r$ explore les sous-arbres ou :
+                \[ \text{hash}(\text{subtree}) \mod P = r \]
+                {\footnotesize Zero communication pour distribution}
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ============================================================================
+%% SECTION 4 : PROPAGATION DES BORNES
+%% ============================================================================
+\section{Propagation O(log P)}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 13 : TOPOLOGIE HYPERCUBE
+%% ----------------------------------------------------------------------------
+\begin{frame}{Topologie Hypercube -- Propagation O(log P)}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Principe}
+                \small
+                Synchroniser la meilleure borne en $\log_2(P)$ rounds.
+            \end{block}
+            \vspace{0.1cm}
+            \textbf{Algorithme :}
+            \begin{enumerate}\small
+                \item Pour $d = 0$ a $\log_2(P)-1$ :
+                \item Partenaire : $rank \oplus 2^d$
+                \item Echanger les bornes
+                \item Garder le minimum
+            \end{enumerate}
+            \vspace{0.1cm}
+            \begin{alertblock}{Complexite}
+                \small
+                Broadcast : O(P)\\
+                \textbf{Hypercube : O(log P)}\\
+                P=256 : 256 $\rightarrow$ \textbf{8 rounds}
+            \end{alertblock}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \centering
+            \textbf{Exemple : P=8 (3 rounds)}\\[0.1cm]
+            \begin{tikzpicture}[scale=0.65]
+                % Round 1
+                \node[font=\tiny] at (-0.8,2) {d=0};
+                \foreach \i in {0,...,7} {
+                    \fill[urcablue] (\i*0.65,2) circle (0.12);
+                    \node[below,font=\tiny] at (\i*0.65,1.7) {\i};
+                }
+                \draw[<->,red,thick] (0*0.65,2.2) -- (1*0.65,2.2);
+                \draw[<->,red,thick] (2*0.65,2.2) -- (3*0.65,2.2);
+                \draw[<->,red,thick] (4*0.65,2.2) -- (5*0.65,2.2);
+                \draw[<->,red,thick] (6*0.65,2.2) -- (7*0.65,2.2);
+                % Round 2
+                \node[font=\tiny] at (-0.8,0.8) {d=1};
+                \foreach \i in {0,...,7} { \fill[urcablue] (\i*0.65,0.8) circle (0.12); }
+                \draw[<->,orange,thick] (0*0.65,1) to[bend left=25] (2*0.65,1);
+                \draw[<->,orange,thick] (1*0.65,1) to[bend left=25] (3*0.65,1);
+                \draw[<->,orange,thick] (4*0.65,1) to[bend left=25] (6*0.65,1);
+                \draw[<->,orange,thick] (5*0.65,1) to[bend left=25] (7*0.65,1);
+                % Round 3
+                \node[font=\tiny] at (-0.8,-0.4) {d=2};
+                \foreach \i in {0,...,7} { \fill[urcablue] (\i*0.65,-0.4) circle (0.12); }
+                \draw[<->,green!60!black,thick] (0*0.65,-0.2) to[bend left=15] (4*0.65,-0.2);
+                \draw[<->,green!60!black,thick] (1*0.65,-0.2) to[bend left=15] (5*0.65,-0.2);
+                \draw[<->,green!60!black,thick] (2*0.65,-0.6) to[bend right=15] (6*0.65,-0.6);
+                \draw[<->,green!60!black,thick] (3*0.65,-0.6) to[bend right=15] (7*0.65,-0.6);
+            \end{tikzpicture}
+            \vspace{0.1cm}
+            {\small Apres 3 rounds : borne globale}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 14 : ALGORITHME HYPERCUBE
+%% ----------------------------------------------------------------------------
+\begin{frame}[fragile]{Algorithme de Propagation}
+    \begin{columns}[T]
+        \begin{column}{0.52\textwidth}
+\begin{lstlisting}
+void propagateBound(int& best,
+                    int rank, int P) {
+  int logP = (int)log2(P);
+  for (int d = 0; d < logP; ++d) {
+    int dist = 1 << d;
+    int partner = rank ^ dist;
+    // Envoi non-bloquant
+    MPI_Request req;
+    MPI_Isend(&best, 1, MPI_INT,
+              partner, TAG_BOUND,
+              MPI_COMM_WORLD, &req);
+    // Reception
+    int pBound;
+    MPI_Recv(&pBound, 1, MPI_INT,
+             partner, TAG_BOUND,
+             MPI_COMM_WORLD,
+             MPI_STATUS_IGNORE);
+    best = min(best, pBound);
+  }
+}
+\end{lstlisting}
+        \end{column}
+        \begin{column}{0.44\textwidth}
+            \begin{block}{Operations cles}
+                \small
+                \begin{itemize}
+                    \item \texttt{rank \^{} dist} : XOR
+                    \item \texttt{MPI\_Isend} : async
+                    \item \texttt{MPI\_Recv} : sync
+                \end{itemize}
+            \end{block}
+            \vspace{0.2cm}
+            \small
+            \begin{tabular}{lcc}
+                \toprule
+                \textbf{P} & \textbf{Bcast} & \textbf{Hyper} \\
+                \midrule
+                8 & 8 & 3 \\
+                64 & 64 & 6 \\
+                256 & 256 & 8 \\
+                1024 & 1024 & 10 \\
+                \bottomrule
+            \end{tabular}
+            \vspace{0.1cm}
+            {\footnotesize Messages par propagation}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ============================================================================
+%% SECTION 5 : RESULTATS
+%% ============================================================================
+\section{Resultats Experimentaux}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 15 : CONFIGURATION
+%% ----------------------------------------------------------------------------
+\begin{frame}{Configuration Experimentale}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Cluster Romeo (URCA)}
+                \begin{itemize}\small
+                    \item \textbf{CPU :} AMD EPYC 7763
+                    \item \textbf{Coeurs :} 128/noeud (2.45 GHz)
+                    \item \textbf{Cache L3 :} 768 MB
+                    \item \textbf{Memoire :} 512 GB/noeud
+                    \item \textbf{Reseau :} InfiniBand HDR
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Configurations testees}
+                \begin{itemize}\small
+                    \item \textbf{v1 :} 1 thread (baseline)
+                    \item \textbf{v2 :} 1-128 threads
+                    \item \textbf{v3 :} 4-16 ranks $\times$ 4-16 threads
+                    \item \textbf{v4 :} 4-32 ranks $\times$ 8 threads
+                \end{itemize}
+            \end{block}
+            \begin{alertblock}{Problemes testes}
+                \small
+                G8, G9, G10, G11, G12, G13, G14
+            \end{alertblock}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 16 : SCALING OPENMP
+%% ----------------------------------------------------------------------------
+\begin{frame}{Scaling OpenMP (v2)}
+    \begin{columns}[T]
+        \begin{column}{0.55\textwidth}
+            \centering
+            \begin{tikzpicture}
+                \begin{axis}[
+                    width=7cm,
+                    height=5cm,
+                    xlabel={Threads},
+                    ylabel={Temps (ms)},
+                    xmode=log,
+                    ymode=log,
+                    log basis x={2},
+                    xmin=0.8, xmax=150,
+                    xtick={1,4,16,64},
+                    legend pos=north east,
+                    grid=major,
+                    legend style={font=\tiny}
+                ]
+                    \addplot[thick,mark=*,blue] coordinates {
+                        (1,5099) (4,1400) (8,700) (16,350) (32,173) (64,120)
+                    };
+                    \addplot[thick,mark=square*,red] coordinates {
+                        (1,264) (4,75) (8,40) (16,22) (32,14) (64,10)
+                    };
+                    \addplot[dashed,gray,domain=1:64] {5099/x};
+                    \legend{G11, G10, Ideal}
+                \end{axis}
+            \end{tikzpicture}
+        \end{column}
+        \begin{column}{0.42\textwidth}
+            \begin{block}{Resultats G11}
+                \small
+                \begin{tabular}{rrc}
+                    \toprule
+                    \textbf{T} & \textbf{Temps} & \textbf{Spdup} \\
+                    \midrule
+                    1 & 5099 ms & 1x \\
+                    8 & 700 ms & 7.3x \\
+                    16 & 350 ms & 14.6x \\
+                    \textbf{32} & \textbf{173 ms} & \textbf{29x} \\
+                    \bottomrule
+                \end{tabular}
+            \end{block}
+            \begin{exampleblock}{Efficacite}
+                \small
+                $E = \frac{Speedup}{P}$\\
+                32 threads : $E = \frac{29}{32} = 91\%$
+            \end{exampleblock}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 17 : COMPARAISON V3 VS V4
+%% ----------------------------------------------------------------------------
+\begin{frame}{Comparaison v3 vs v4}
+    \begin{columns}[T]
+        \begin{column}{0.55\textwidth}
+            \centering
+            \begin{tikzpicture}
+                \begin{axis}[
+                    width=7cm,
+                    height=5cm,
+                    ybar,
+                    bar width=10pt,
+                    xlabel={Ordre},
+                    ylabel={Temps (ms)},
+                    ymode=log,
+                    symbolic x coords={G11,G12,G13},
+                    xtick=data,
+                    legend pos=north west,
+                    legend style={font=\tiny},
+                    ymin=100,ymax=150000,
+                    enlarge x limits=0.25,
+                ]
+                    \addplot[fill=orange!70] coordinates {
+                        (G11,16014) (G12,45937) (G13,120000)
+                    };
+                    \addplot[fill=blue!70] coordinates {
+                        (G11,350) (G12,1510) (G13,69312)
+                    };
+                    \legend{v3, v4}
+                \end{axis}
+            \end{tikzpicture}
+        \end{column}
+        \begin{column}{0.42\textwidth}
+            \begin{block}{Temps (256 workers)}
+                \small
+                \begin{tabular}{lcc}
+                    \toprule
+                    & \textbf{v3} & \textbf{v4} \\
+                    \midrule
+                    G11 & 16.0 s & \textbf{0.35 s} \\
+                    G12 & 45.9 s & \textbf{1.5 s} \\
+                    G13 & 120 s & \textbf{69 s} \\
+                    \bottomrule
+                \end{tabular}
+            \end{block}
+            \vspace{0.1cm}
+            \begin{alertblock}{Acceleration v4/v3}
+                \small
+                G11 : \textcolor{red}{\textbf{45x}}\\
+                G12 : \textcolor{red}{\textbf{30x}}
+            \end{alertblock}
+            {\small v3 : master sature\\v4 : O(log P) scalable}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 18 : EFFICACITE PARALLELE
+%% ----------------------------------------------------------------------------
+\begin{frame}{Efficacite Parallele}
+    \begin{columns}[T]
+        \begin{column}{0.55\textwidth}
+            \centering
+            \begin{tikzpicture}
+                \begin{axis}[
+                    width=7cm,
+                    height=5cm,
+                    xlabel={Workers},
+                    ylabel={Efficacite (\%)},
+                    xmode=log,
+                    log basis x={2},
+                    xmin=1, xmax=300,
+                    ymin=0, ymax=110,
+                    xtick={1,4,16,64,256},
+                    legend pos=south west,
+                    legend style={font=\tiny},
+                    grid=major,
+                ]
+                    \addplot[thick,mark=*,blue] coordinates {
+                        (1,100) (4,90) (8,91) (16,91) (32,91) (64,65)
+                    };
+                    \addplot[thick,mark=square*,red] coordinates {
+                        (32,95) (64,88) (128,80) (256,75)
+                    };
+                    \addplot[dashed,gray,domain=1:300] {100};
+                    \legend{v2 OMP, v4 MPI, Ideal}
+                \end{axis}
+            \end{tikzpicture}
+        \end{column}
+        \begin{column}{0.42\textwidth}
+            \begin{block}{Definition}
+                \small
+                $E = \frac{S_p}{p} = \frac{T_1 / T_p}{p}$
+                \begin{itemize}\footnotesize
+                    \item $E = 100\%$ : ideal
+                    \item $E > 80\%$ : tres bon
+                    \item $E > 50\%$ : acceptable
+                \end{itemize}
+            \end{block}
+            \begin{exampleblock}{Observations}
+                \small
+                \begin{itemize}
+                    \item v2 : $>$90\% jusqu'a 32t
+                    \item v4 : $>$75\% jusqu'a 256w
+                \end{itemize}
+            \end{exampleblock}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ============================================================================
+%% SECTION 6 : CONCLUSION
+%% ============================================================================
+\section{Conclusion}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 19 : CONTRIBUTIONS
+%% ----------------------------------------------------------------------------
+\begin{frame}{Contributions et Resultats}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Contributions}
+                \begin{enumerate}\small
+                    \item \textbf{5 versions} avec progression parallelisation
+                    \item \textbf{Optimisations} : pruning, BitSet256, AVX2
+                    \item \textbf{Communication O(log P)} via hypercube
+                    \item \textbf{Integration HPC} : SLURM, benchmarks
+                \end{enumerate}
+            \end{block}
+            \begin{alertblock}{Code}
+                \small
+                5500+ lignes C++17\\
+                58 tests de validation\\
+                Structure modulaire
+            \end{alertblock}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{exampleblock}{Performances}
+                \small
+                \begin{itemize}
+                    \item G11 : 5.1s $\rightarrow$ \textbf{173ms} (OMP 32t)
+                    \item G11 : \textbf{350ms} (v4, 256w)
+                    \item G12 : \textbf{1.5s} (v4, 256w)
+                    \item G13 : \textbf{69s} (v4, 256w)
+                \end{itemize}
+                \vspace{0.1cm}
+                Speedup : \textbf{29x} (OMP)\\
+                Efficacite : \textbf{$>$75\%} (256w)
+            \end{exampleblock}
+            \begin{block}{Reduction}
+                \small
+                Espace recherche : \textbf{22x} moins
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%% ----------------------------------------------------------------------------
+%% SLIDE 20 : PERSPECTIVES
+%% ----------------------------------------------------------------------------
+\begin{frame}{Perspectives et Questions}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Ameliorations possibles}
+                \begin{itemize}\small
+                    \item \textbf{GPU} : CUDA pour collisions
+                    \item \textbf{BitSet512/1024} : G15+
+                    \item \textbf{Topologies adaptatives}
+                    \item \textbf{ML} : strategies apprises
+                \end{itemize}
+            \end{block}
+            \begin{alertblock}{Limitations}
+                \small
+                \begin{itemize}
+                    \item BitSet256 limite a L$<$256
+                    \item v4 optimal pour P = $2^k$
+                    \item G14+ : plusieurs heures
+                \end{itemize}
+            \end{alertblock}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \centering
+            \vspace{0.5cm}
+            {\Huge\color{urcablue} Questions ?}
+            \vspace{0.8cm}
+            \begin{tikzpicture}
+                \node[draw,rounded corners,fill=lightblue!50,text width=4.5cm,align=center,font=\small] {
+                    \textbf{Merci !}\\[0.1cm]
+                    Cluster Romeo -- URCA\\
+                    Master 1 HPC 2025-2026
+                };
+            \end{tikzpicture}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\end{document}

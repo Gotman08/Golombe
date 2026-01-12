@@ -1,0 +1,247 @@
+\relax 
+\providecommand\babel@aux[2]{}
+\@nameuse{bbl@beforestart}
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\providecommand \oddpage@label [2]{}
+\babel@aux{french}{}
+\@writefile{toc}{\contentsline {chapter}{\numberline {1}Introduction}{5}{chapter.1}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {1.1}Contexte et Motivation}{5}{section.1.1}\protected@file@percent }
+\newlabel{def:golomb-def}{{1.1}{5}{Règle de Golomb}{tcb@cnt@definition.1.1}{}}
+\newlabel{def:golomb-def@cref}{{[tcb@cnt@definition][1][1]1.1}{[1][5][]5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1.1}{\ignorespaces Règle de Golomb optimale d'ordre 4 : $\{0, 1, 3, 6\}$ avec longueur $L=6$}}{5}{figure.caption.2}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:golomb-g4}{{1.1}{5}{Règle de Golomb optimale d'ordre 4 : $\{0, 1, 3, 6\}$ avec longueur $L=6$}{figure.caption.2}{}}
+\newlabel{fig:golomb-g4@cref}{{[figure][1][1]1.1}{[1][5][]5}}
+\@writefile{toc}{\contentsline {section}{\numberline {1.2}Applications Pratiques}{6}{section.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1.3}Complexité du Problème}{6}{section.1.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1.1}{\ignorespaces Longueurs optimales connues des règles de Golomb (OEIS A003022)}}{6}{table.caption.3}\protected@file@percent }
+\newlabel{tab:optimal-lengths}{{1.1}{6}{Longueurs optimales connues des règles de Golomb (OEIS A003022)}{table.caption.3}{}}
+\newlabel{tab:optimal-lengths@cref}{{[table][1][1]1.1}{[1][6][]6}}
+\@writefile{toc}{\contentsline {section}{\numberline {1.4}Objectifs du Projet}{6}{section.1.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1.5}Organisation du Rapport}{7}{section.1.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {chapter}{\numberline {2}Fondements Algorithmiques}{8}{chapter.2}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {2.1}Formalisation du Problème}{8}{section.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2.2}Algorithme Branch-and-Bound}{8}{section.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2.1}Principe Général}{8}{subsection.2.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2.2}Pseudo-code}{9}{subsection.2.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2.3}Analyse de Complexité}{9}{subsection.2.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2.3}Heuristique Gloutonne pour la Borne Initiale}{9}{section.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2.4}Structure de Données pour les Différences}{9}{section.2.4}\protected@file@percent }
+\@writefile{loa}{\contentsline {algocf}{\numberline {1}{\ignorespaces Algorithme Branch-and-Bound pour les règles de Golomb}}{10}{algocf.1}\protected@file@percent }
+\newlabel{algo:branch-bound}{{1}{10}{Pseudo-code}{algocf.1}{}}
+\newlabel{algo:branch-bound@cref}{{[algorithm][1][]1}{[1][9][]10}}
+\@writefile{loa}{\contentsline {algocf}{\numberline {2}{\ignorespaces Heuristique gloutonne pour la borne initiale}}{11}{algocf.2}\protected@file@percent }
+\newlabel{algo:greedy}{{2}{11}{Heuristique Gloutonne pour la Borne Initiale}{algocf.2}{}}
+\newlabel{algo:greedy@cref}{{[algorithm][2][]2}{[1][9][]11}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {3}Implémentation Séquentielle (V1)}{12}{chapter.3}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {3.1}Architecture Logicielle}{12}{section.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1.1}Structure de Données BitSet256}{12}{subsection.3.1.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.1}{\ignorespaces Structure BitSet256 avec alignement mémoire}}{12}{lstlisting.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3.2}Optimisation AVX2 pour la Détection de Collisions}{13}{section.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2.1}Principe de la Vectorisation}{13}{subsection.3.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2.2}Implémentation}{13}{subsection.3.2.2}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.2}{\ignorespaces Détection de collision AVX2 dans BitSet256}}{13}{lstlisting.3.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3.1}{\ignorespaces Pipeline de vérification AVX2 : détection de collision en 3 instructions}}{14}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:avx2-pipeline}{{3.1}{14}{Pipeline de vérification AVX2 : détection de collision en 3 instructions}{figure.caption.6}{}}
+\newlabel{fig:avx2-pipeline@cref}{{[figure][1][3]3.1}{[1][13][]14}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2.3}Analyse de Performance}{14}{subsection.3.2.3}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.3}{\ignorespaces Version scalaire (avant optimisation)}}{14}{lstlisting.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3.3}Structure SearchState}{15}{section.3.3}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.4}{\ignorespaces Structure SearchState pour la recherche}}{15}{lstlisting.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3.4}Résultats de la Version Séquentielle}{15}{section.3.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3.1}{\ignorespaces Performance de la version séquentielle V1 sur Romeo}}{15}{table.caption.7}\protected@file@percent }
+\newlabel{tab:v1-perf}{{3.1}{15}{Performance de la version séquentielle V1 sur Romeo}{table.caption.7}{}}
+\newlabel{tab:v1-perf@cref}{{[table][1][3]3.1}{[1][15][]15}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {4}Parallélisation OpenMP (V2)}{16}{chapter.4}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {4.1}Stratégie de Parallélisation}{16}{section.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1.1}Profondeur de Parallélisation Adaptative}{16}{subsection.4.1.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {4.1}{\ignorespaces Profondeur de parallélisation adaptative}}{16}{lstlisting.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1.2}Création de Tâches OpenMP}{16}{subsection.4.1.2}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {4.2}{\ignorespaces Boucle principale avec création de tâches}}{16}{lstlisting.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4.2}Problèmes Rencontrés et Solutions}{17}{section.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2.1}Problème 1 : Race Condition sur la Borne Globale}{17}{subsection.4.2.1}\protected@file@percent }
+\newlabel{prob:race-condition}{{4.1}{17}{Race Condition sur bestLength}{tcb@cnt@probleme.4.1}{}}
+\newlabel{prob:race-condition@cref}{{[tcb@cnt@probleme][1][4]4.1}{[1][17][]17}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {4.3}{\ignorespaces Code initial avec race condition}}{17}{lstlisting.4.3}\protected@file@percent }
+\newlabel{sol:atomic-mutex}{{4.1}{18}{Atomic + Mutex pour la mise à jour}{tcb@cnt@solution.4.1}{}}
+\newlabel{sol:atomic-mutex@cref}{{[tcb@cnt@solution][1][4]4.1}{[1][18][]18}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2.2}Problème 2 : Contention Atomique}{19}{subsection.4.2.2}\protected@file@percent }
+\newlabel{prob:atomic-contention}{{4.2}{19}{Contention sur les opérations atomiques}{tcb@cnt@probleme.4.2}{}}
+\newlabel{prob:atomic-contention@cref}{{[tcb@cnt@probleme][2][4]4.2}{[1][18][]19}}
+\newlabel{sol:bound-caching}{{4.2}{19}{Caching de Borne avec Intervalle de 16K Nœuds}{tcb@cnt@solution.4.2}{}}
+\newlabel{sol:bound-caching@cref}{{[tcb@cnt@solution][2][4]4.2}{[1][19][]19}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2.3}Problème 3 : False Sharing}{20}{subsection.4.2.3}\protected@file@percent }
+\newlabel{prob:false-sharing}{{4.3}{20}{Effondrement des performances à 32+ threads}{tcb@cnt@probleme.4.3}{}}
+\newlabel{prob:false-sharing@cref}{{[tcb@cnt@probleme][3][4]4.3}{[1][20][]20}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.1}{\ignorespaces Illustration du problème de false sharing}}{20}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:false-sharing}{{4.1}{20}{Illustration du problème de false sharing}{figure.caption.8}{}}
+\newlabel{fig:false-sharing@cref}{{[figure][1][4]4.1}{[1][20][]20}}
+\newlabel{sol:cache-alignment}{{4.3}{20}{Alignement sur lignes de cache avec alignas(64)}{tcb@cnt@solution.4.3}{}}
+\newlabel{sol:cache-alignment@cref}{{[tcb@cnt@solution][3][4]4.3}{[1][20][]20}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.3}Résultats de Scaling}{21}{section.4.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4.1}{\ignorespaces Scaling fort de V2 OpenMP sur Romeo (128 cœurs AMD EPYC)}}{21}{table.caption.9}\protected@file@percent }
+\newlabel{tab:v2-scaling}{{4.1}{21}{Scaling fort de V2 OpenMP sur Romeo (128 cœurs AMD EPYC)}{table.caption.9}{}}
+\newlabel{tab:v2-scaling@cref}{{[table][1][4]4.1}{[1][21][]21}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.2}{\ignorespaces Speedup OpenMP mesuré sur le cluster Romeo HPC}}{22}{figure.caption.10}\protected@file@percent }
+\newlabel{fig:v2-speedup}{{4.2}{22}{Speedup OpenMP mesuré sur le cluster Romeo HPC}{figure.caption.10}{}}
+\newlabel{fig:v2-speedup@cref}{{[figure][2][4]4.2}{[1][21][]22}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.3}{\ignorespaces Efficacité parallèle OpenMP en fonction du nombre de threads}}{22}{figure.caption.11}\protected@file@percent }
+\newlabel{fig:v2-efficiency}{{4.3}{22}{Efficacité parallèle OpenMP en fonction du nombre de threads}{figure.caption.11}{}}
+\newlabel{fig:v2-efficiency@cref}{{[figure][3][4]4.3}{[1][21][]22}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {5}Distribution MPI Master/Worker (V3)}{23}{chapter.5}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {5.1}Motivation}{23}{section.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.2}Architecture Master/Worker}{23}{section.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.3}Génération des Sous-arbres}{23}{section.5.3}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {5.1}{\ignorespaces Structure d'un sous-arbre}}{23}{lstlisting.5.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5.1}{\ignorespaces Architecture Master/Worker de la version V3}}{24}{figure.caption.12}\protected@file@percent }
+\newlabel{fig:master-worker}{{5.1}{24}{Architecture Master/Worker de la version V3}{figure.caption.12}{}}
+\newlabel{fig:master-worker@cref}{{[figure][1][5]5.1}{[1][23][]24}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.4}Distribution Dynamique du Travail}{24}{section.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.5}Propagation des Bornes}{24}{section.5.5}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {5.2}{\ignorespaces Propagation de borne via voisins hypercube}}{24}{lstlisting.5.2}\protected@file@percent }
+\@writefile{loa}{\contentsline {algocf}{\numberline {3}{\ignorespaces Distribution dynamique Master/Worker}}{25}{algocf.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.6}Problème : Goulot d'Étranglement du Master}{26}{section.5.6}\protected@file@percent }
+\newlabel{prob:master-bottleneck}{{5.1}{26}{Bottleneck du Master}{tcb@cnt@probleme.5.1}{}}
+\newlabel{prob:master-bottleneck@cref}{{[tcb@cnt@probleme][1][5]5.1}{[1][26][]26}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.7}Résultats de V3}{26}{section.5.7}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5.2}{\ignorespaces Timeline d'exécution V3 montrant le temps idle des workers}}{27}{figure.caption.14}\protected@file@percent }
+\newlabel{fig:v3-timeline}{{5.2}{27}{Timeline d'exécution V3 montrant le temps idle des workers}{figure.caption.14}{}}
+\newlabel{fig:v3-timeline@cref}{{[figure][2][5]5.2}{[1][26][]27}}
+\@writefile{lot}{\contentsline {table}{\numberline {5.1}{\ignorespaces Performance de V3 Master/Worker}}{27}{table.caption.15}\protected@file@percent }
+\newlabel{tab:v3-perf}{{5.1}{27}{Performance de V3 Master/Worker}{table.caption.15}{}}
+\newlabel{tab:v3-perf@cref}{{[table][1][5]5.1}{[1][26][]27}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {6}Architecture Hypercube Décentralisée (V4/V5)}{28}{chapter.6}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {6.1}Motivation : Éliminer le Goulot d'Étranglement}{28}{section.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6.2}Topologie Hypercube}{28}{section.6.2}\protected@file@percent }
+\newlabel{def:hypercube-neighbors}{{6.1}{28}{Voisins Hypercube}{tcb@cnt@definition.6.1}{}}
+\newlabel{def:hypercube-neighbors@cref}{{[tcb@cnt@definition][1][6]6.1}{[1][28][]28}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.1}{\ignorespaces Topologie hypercube pour 8 processus MPI}}{29}{figure.caption.16}\protected@file@percent }
+\newlabel{fig:hypercube}{{6.1}{29}{Topologie hypercube pour 8 processus MPI}{figure.caption.16}{}}
+\newlabel{fig:hypercube@cref}{{[figure][1][6]6.1}{[1][29][]29}}
+\@writefile{toc}{\contentsline {section}{\numberline {6.3}Distribution Statique Déterministe}{29}{section.6.3}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {6.1}{\ignorespaces Distribution statique des sous-arbres}}{29}{lstlisting.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6.4}Propagation de Bornes O(log P)}{30}{section.6.4}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {6.2}{\ignorespaces Gestionnaire de bornes hypercube}}{30}{lstlisting.6.2}\protected@file@percent }
+\newlabel{thm:bound-propagation}{{6.1}{31}{Complexité de propagation}{tcb@cnt@theoreme.6.1}{}}
+\newlabel{thm:bound-propagation@cref}{{[tcb@cnt@theoreme][1][6]6.1}{[1][31][]31}}
+\@writefile{toc}{\contentsline {section}{\numberline {6.5}Problème Rencontré : Deadlock MPI}{31}{section.6.5}\protected@file@percent }
+\newlabel{prob:mpi-deadlock}{{6.1}{31}{Deadlock lors de la propagation de bornes}{tcb@cnt@probleme.6.1}{}}
+\newlabel{prob:mpi-deadlock@cref}{{[tcb@cnt@probleme][1][6]6.1}{[1][31][]31}}
+\newlabel{sol:mpi-send}{{6.1}{32}{Utilisation de MPI\_Send standard}{tcb@cnt@solution.6.1}{}}
+\newlabel{sol:mpi-send@cref}{{[tcb@cnt@solution][1][6]6.1}{[1][32][]32}}
+\@writefile{toc}{\contentsline {section}{\numberline {6.6}V5 : Version MPI Pure}{32}{section.6.6}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {6.3}{\ignorespaces Solveur séquentiel simplifié de V5}}{33}{lstlisting.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6.7}Comparaison V3 vs V4}{33}{section.6.7}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6.1}{\ignorespaces Comparaison des architectures V3 et V4}}{33}{table.caption.17}\protected@file@percent }
+\newlabel{tab:v3-v4-compare}{{6.1}{33}{Comparaison des architectures V3 et V4}{table.caption.17}{}}
+\newlabel{tab:v3-v4-compare@cref}{{[table][1][6]6.1}{[1][33][]33}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.2}{\ignorespaces Comparaison des versions MPI sur le cluster Romeo}}{34}{figure.caption.18}\protected@file@percent }
+\newlabel{fig:mpi-comparison}{{6.2}{34}{Comparaison des versions MPI sur le cluster Romeo}{figure.caption.18}{}}
+\newlabel{fig:mpi-comparison@cref}{{[figure][2][6]6.2}{[1][33][]34}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.3}{\ignorespaces Scaling des versions MPI en fonction du nombre de processus}}{34}{figure.caption.19}\protected@file@percent }
+\newlabel{fig:mpi-scaling}{{6.3}{34}{Scaling des versions MPI en fonction du nombre de processus}{figure.caption.19}{}}
+\newlabel{fig:mpi-scaling@cref}{{[figure][3][6]6.3}{[1][33][]34}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {7}Résultats Expérimentaux}{35}{chapter.7}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {7.1}Environnement de Test}{35}{section.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1.1}Cluster Romeo}{35}{subsection.7.1.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7.1}{\ignorespaces Spécifications du cluster Romeo}}{35}{table.caption.20}\protected@file@percent }
+\newlabel{tab:romeo-specs}{{7.1}{35}{Spécifications du cluster Romeo}{table.caption.20}{}}
+\newlabel{tab:romeo-specs@cref}{{[table][1][7]7.1}{[1][35][]35}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1.2}Configuration Logicielle}{35}{subsection.7.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.2}Scaling Fort}{36}{section.7.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7.2}{\ignorespaces Scaling fort pour G12 (problème fixe, ressources croissantes)}}{36}{table.caption.21}\protected@file@percent }
+\newlabel{tab:strong-scaling}{{7.2}{36}{Scaling fort pour G12 (problème fixe, ressources croissantes)}{table.caption.21}{}}
+\newlabel{tab:strong-scaling@cref}{{[table][2][7]7.2}{[1][35][]36}}
+\@writefile{toc}{\contentsline {section}{\numberline {7.3}Scaling Faible}{36}{section.7.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7.3}{\ignorespaces Scaling faible : charge constante par worker}}{36}{table.caption.24}\protected@file@percent }
+\newlabel{tab:weak-scaling}{{7.3}{36}{Scaling faible : charge constante par worker}{table.caption.24}{}}
+\newlabel{tab:weak-scaling@cref}{{[table][3][7]7.3}{[1][36][]36}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7.1}{\ignorespaces Scaling fort OpenMP mesuré sur le cluster Romeo}}{37}{figure.caption.22}\protected@file@percent }
+\newlabel{fig:strong-scaling-omp}{{7.1}{37}{Scaling fort OpenMP mesuré sur le cluster Romeo}{figure.caption.22}{}}
+\newlabel{fig:strong-scaling-omp@cref}{{[figure][1][7]7.1}{[1][36][]37}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7.2}{\ignorespaces Meilleurs temps d'exécution par version et par ordre}}{37}{figure.caption.23}\protected@file@percent }
+\newlabel{fig:best-times}{{7.2}{37}{Meilleurs temps d'exécution par version et par ordre}{figure.caption.23}{}}
+\newlabel{fig:best-times@cref}{{[figure][2][7]7.2}{[1][36][]37}}
+\@writefile{toc}{\contentsline {section}{\numberline {7.4}Impact des Optimisations AVX2}{38}{section.7.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7.4}{\ignorespaces Comparaison scalaire vs AVX2 (V1 séquentiel)}}{38}{table.caption.25}\protected@file@percent }
+\newlabel{tab:avx2-impact}{{7.4}{38}{Comparaison scalaire vs AVX2 (V1 séquentiel)}{table.caption.25}{}}
+\newlabel{tab:avx2-impact@cref}{{[table][4][7]7.4}{[1][36][]38}}
+\@writefile{toc}{\contentsline {section}{\numberline {7.5}Overhead de Communication MPI}{38}{section.7.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7.5}{\ignorespaces Décomposition du temps pour V4, G12, 64 processus}}{38}{table.caption.26}\protected@file@percent }
+\newlabel{tab:communication-overhead}{{7.5}{38}{Décomposition du temps pour V4, G12, 64 processus}{table.caption.26}{}}
+\newlabel{tab:communication-overhead@cref}{{[table][5][7]7.5}{[1][38][]38}}
+\@writefile{toc}{\contentsline {section}{\numberline {7.6}Solutions Optimales Trouvées}{38}{section.7.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.7}Visualisations des Performances}{38}{section.7.7}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7.6}{\ignorespaces Solutions optimales vérifiées}}{39}{table.caption.27}\protected@file@percent }
+\newlabel{tab:optimal-solutions}{{7.6}{39}{Solutions optimales vérifiées}{table.caption.27}{}}
+\newlabel{tab:optimal-solutions@cref}{{[table][6][7]7.6}{[1][38][]39}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7.3}{\ignorespaces Comparaison des temps d'exécution entre les différentes versions}}{39}{figure.caption.28}\protected@file@percent }
+\newlabel{fig:time-comparison}{{7.3}{39}{Comparaison des temps d'exécution entre les différentes versions}{figure.caption.28}{}}
+\newlabel{fig:time-comparison@cref}{{[figure][3][7]7.3}{[1][38][]39}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7.4}{\ignorespaces Impact du nombre de cœurs sur les performances}}{40}{figure.caption.29}\protected@file@percent }
+\newlabel{fig:cores-impact}{{7.4}{40}{Impact du nombre de cœurs sur les performances}{figure.caption.29}{}}
+\newlabel{fig:cores-impact@cref}{{[figure][4][7]7.4}{[1][38][]40}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7.5}{\ignorespaces Heatmap des performances : vue synthétique des temps d'exécution}}{40}{figure.caption.30}\protected@file@percent }
+\newlabel{fig:heatmap}{{7.5}{40}{Heatmap des performances : vue synthétique des temps d'exécution}{figure.caption.30}{}}
+\newlabel{fig:heatmap@cref}{{[figure][5][7]7.5}{[1][38][]40}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {8}Discussion}{41}{chapter.8}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {8.1}Récapitulatif des Défis Techniques}{41}{section.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8.2}Trade-offs Architecturaux}{41}{section.8.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8.1}{\ignorespaces Comparaison des versions}}{41}{table.caption.31}\protected@file@percent }
+\newlabel{tab:version-comparison}{{8.1}{41}{Comparaison des versions}{table.caption.31}{}}
+\newlabel{tab:version-comparison@cref}{{[table][1][8]8.1}{[1][41][]41}}
+\@writefile{toc}{\contentsline {section}{\numberline {8.3}Limitations}{42}{section.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8.4}Perspectives d'Amélioration}{42}{section.8.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.1}Court terme}{42}{subsection.8.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.2}Long terme}{42}{subsection.8.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {chapter}{\numberline {9}Conclusion}{43}{chapter.9}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {9.1}Réalisations}{43}{section.9.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9.2}Apprentissages Clés}{43}{section.9.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9.3}Recommandations}{44}{section.9.3}\protected@file@percent }
+\bibcite{golomb1972}{1}
+\bibcite{oeis}{2}
+\bibcite{openmp}{3}
+\bibcite{mpi}{4}
+\bibcite{intel-avx}{5}
+\bibcite{hypercube}{6}
+\bibcite{branch-bound}{7}
+\bibcite{false-sharing}{8}
+\bibcite{romeo}{9}
+\@writefile{toc}{\contentsline {chapter}{\numberline {A}Extraits de Code Source}{46}{appendix.A}\protected@file@percent }
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{loa}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {A.1}BitSet256 Complet}{46}{section.A.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {A.1}{\ignorespaces include/golomb/bitset256.hpp (extrait)}}{46}{lstlisting.A.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A.2}Configuration SLURM}{47}{section.A.2}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {A.2}{\ignorespaces Exemple de script SLURM pour V4}}{47}{lstlisting.A.2}\protected@file@percent }
+\gdef \@abspage@last{48}

@@ -1,0 +1,7 @@
+\babel@toc {french}{}\relax 
+\beamer@sectionintoc {1}{Introduction}{3}{0}{1}
+\beamer@sectionintoc {2}{Algorithme}{5}{0}{2}
+\beamer@sectionintoc {3}{Architecture des 5 Versions}{9}{0}{3}
+\beamer@sectionintoc {4}{Propagation O(log P)}{14}{0}{4}
+\beamer@sectionintoc {5}{Resultats Experimentaux}{16}{0}{5}
+\beamer@sectionintoc {6}{Conclusion}{20}{0}{6}

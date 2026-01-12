@@ -1,0 +1,51 @@
+\frametitle{Algorithme de Propagation}
+\begin{columns}[T]
+        \begin{column}{0.52\textwidth}
+\begin{lstlisting}
+void propagateBound(int& best,
+                    int rank, int P) {
+  int logP = (int)log2(P);
+  for (int d = 0; d < logP; ++d) {
+    int dist = 1 << d;
+    int partner = rank ^ dist;
+    // Envoi non-bloquant
+    MPI_Request req;
+    MPI_Isend(&best, 1, MPI_INT,
+              partner, TAG_BOUND,
+              MPI_COMM_WORLD, &req);
+    // Reception
+    int pBound;
+    MPI_Recv(&pBound, 1, MPI_INT,
+             partner, TAG_BOUND,
+             MPI_COMM_WORLD,
+             MPI_STATUS_IGNORE);
+    best = min(best, pBound);
+  }
+}
+\end{lstlisting}
+        \end{column}
+        \begin{column}{0.44\textwidth}
+            \begin{block}{Operations cles}
+                \small
+                \begin{itemize}
+                    \item \texttt{rank \^{} dist} : XOR
+                    \item \texttt{MPI\_Isend} : async
+                    \item \texttt{MPI\_Recv} : sync
+                \end{itemize}
+            \end{block}
+            \vspace{0.2cm}
+            \small
+            \begin{tabular}{lcc}
+                \toprule
+                \textbf{P} & \textbf{Bcast} & \textbf{Hyper} \\
+                \midrule
+                8 & 8 & 3 \\
+                64 & 64 & 6 \\
+                256 & 256 & 8 \\
+                1024 & 1024 & 10 \\
+                \bottomrule
+            \end{tabular}
+            \vspace{0.1cm}
+            {\footnotesize Messages par propagation}
+        \end{column}
+    \end{columns}

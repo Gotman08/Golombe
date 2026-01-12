@@ -1,0 +1,73 @@
+\babel@toc {french}{}\relax 
+\contentsline {chapter}{\numberline {1}Introduction}{5}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Contexte et Motivation}{5}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Applications Pratiques}{6}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Complexité du Problème}{6}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Objectifs du Projet}{6}{section.1.4}%
+\contentsline {section}{\numberline {1.5}Organisation du Rapport}{7}{section.1.5}%
+\contentsline {chapter}{\numberline {2}Fondements Algorithmiques}{8}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Formalisation du Problème}{8}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Algorithme Branch-and-Bound}{8}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Principe Général}{8}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Pseudo-code}{9}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}Analyse de Complexité}{9}{subsection.2.2.3}%
+\contentsline {section}{\numberline {2.3}Heuristique Gloutonne pour la Borne Initiale}{9}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Structure de Données pour les Différences}{9}{section.2.4}%
+\contentsline {chapter}{\numberline {3}Implémentation Séquentielle (V1)}{12}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Architecture Logicielle}{12}{section.3.1}%
+\contentsline {subsection}{\numberline {3.1.1}Structure de Données BitSet256}{12}{subsection.3.1.1}%
+\contentsline {section}{\numberline {3.2}Optimisation AVX2 pour la Détection de Collisions}{13}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Principe de la Vectorisation}{13}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Implémentation}{13}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Analyse de Performance}{14}{subsection.3.2.3}%
+\contentsline {section}{\numberline {3.3}Structure SearchState}{15}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Résultats de la Version Séquentielle}{15}{section.3.4}%
+\contentsline {chapter}{\numberline {4}Parallélisation OpenMP (V2)}{16}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Stratégie de Parallélisation}{16}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Profondeur de Parallélisation Adaptative}{16}{subsection.4.1.1}%
+\contentsline {subsection}{\numberline {4.1.2}Création de Tâches OpenMP}{16}{subsection.4.1.2}%
+\contentsline {section}{\numberline {4.2}Problèmes Rencontrés et Solutions}{17}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Problème 1 : Race Condition sur la Borne Globale}{17}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Problème 2 : Contention Atomique}{19}{subsection.4.2.2}%
+\contentsline {subsection}{\numberline {4.2.3}Problème 3 : False Sharing}{20}{subsection.4.2.3}%
+\contentsline {section}{\numberline {4.3}Résultats de Scaling}{21}{section.4.3}%
+\contentsline {chapter}{\numberline {5}Distribution MPI Master/Worker (V3)}{23}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Motivation}{23}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Architecture Master/Worker}{23}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Génération des Sous-arbres}{23}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Distribution Dynamique du Travail}{24}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Propagation des Bornes}{24}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Problème : Goulot d'Étranglement du Master}{26}{section.5.6}%
+\contentsline {section}{\numberline {5.7}Résultats de V3}{26}{section.5.7}%
+\contentsline {chapter}{\numberline {6}Architecture Hypercube Décentralisée (V4/V5)}{28}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Motivation : Éliminer le Goulot d'Étranglement}{28}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Topologie Hypercube}{28}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Distribution Statique Déterministe}{29}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Propagation de Bornes O(log P)}{30}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Problème Rencontré : Deadlock MPI}{31}{section.6.5}%
+\contentsline {section}{\numberline {6.6}V5 : Version MPI Pure}{32}{section.6.6}%
+\contentsline {section}{\numberline {6.7}Comparaison V3 vs V4}{33}{section.6.7}%
+\contentsline {chapter}{\numberline {7}Résultats Expérimentaux}{35}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Environnement de Test}{35}{section.7.1}%
+\contentsline {subsection}{\numberline {7.1.1}Cluster Romeo}{35}{subsection.7.1.1}%
+\contentsline {subsection}{\numberline {7.1.2}Configuration Logicielle}{35}{subsection.7.1.2}%
+\contentsline {section}{\numberline {7.2}Scaling Fort}{36}{section.7.2}%
+\contentsline {section}{\numberline {7.3}Scaling Faible}{36}{section.7.3}%
+\contentsline {section}{\numberline {7.4}Impact des Optimisations AVX2}{38}{section.7.4}%
+\contentsline {section}{\numberline {7.5}Overhead de Communication MPI}{38}{section.7.5}%
+\contentsline {section}{\numberline {7.6}Solutions Optimales Trouvées}{38}{section.7.6}%
+\contentsline {section}{\numberline {7.7}Visualisations des Performances}{38}{section.7.7}%
+\contentsline {chapter}{\numberline {8}Discussion}{41}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Récapitulatif des Défis Techniques}{41}{section.8.1}%
+\contentsline {section}{\numberline {8.2}Trade-offs Architecturaux}{41}{section.8.2}%
+\contentsline {section}{\numberline {8.3}Limitations}{42}{section.8.3}%
+\contentsline {section}{\numberline {8.4}Perspectives d'Amélioration}{42}{section.8.4}%
+\contentsline {subsection}{\numberline {8.4.1}Court terme}{42}{subsection.8.4.1}%
+\contentsline {subsection}{\numberline {8.4.2}Long terme}{42}{subsection.8.4.2}%
+\contentsline {chapter}{\numberline {9}Conclusion}{43}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Réalisations}{43}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Apprentissages Clés}{43}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Recommandations}{44}{section.9.3}%
+\contentsline {chapter}{\numberline {A}Extraits de Code Source}{46}{appendix.A}%
+\contentsline {section}{\numberline {A.1}BitSet256 Complet}{46}{section.A.1}%
+\contentsline {section}{\numberline {A.2}Configuration SLURM}{47}{section.A.2}%

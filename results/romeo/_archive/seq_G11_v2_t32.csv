@@ -1,0 +1,2 @@
+version,order,time_ms,nodes_explored,nodes_pruned,solution,length
+2,11,249.21,43527351,105398575,"[0, 3, 14, 16, 20, 41, 48, 53, 63, 71, 72]",72

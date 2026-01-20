@@ -1,0 +1,2 @@
+version,order,threads,time_ms,nodes_explored,nodes_pruned,solution,length
+6,14,1,23271295.19,144742361056,481352120680,"[0, 4, 6, 20, 35, 52, 59, 77, 78, 86, 89, 99, 122, 127]",127

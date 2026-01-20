@@ -1,0 +1,17 @@
+=== Golomb Ruler Solver v3: Hybrid MPI+OpenMP ===
+Order: 10
+MPI Processes: 4
+OpenMP Threads/rank: 4
+Total workers: 16
+Prefix depth: 4
+SIMD/AVX2: Enabled
+Initial bound: 80
+Subtrees: 51932
+
+=== Golomb G10 ===
+Solution: [0, 1, 6, 10, 23, 26, 34, 41, 53, 55]
+Length: 55
+Time: 135.94 ms
+Nodes explored: 2457009
+Nodes pruned: 5323012
+*** OPTIMAL SOLUTION FOUND ***

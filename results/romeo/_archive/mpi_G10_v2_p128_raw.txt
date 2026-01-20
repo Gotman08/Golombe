@@ -1,0 +1,13 @@
+=== Golomb Ruler Solver - MPI v2: Hypercube ===
+Order: 10, Processes: 128
+Hypercube dimension: 7
+Prefix depth: 4
+Initial bound (greedy): 80
+Subtrees generated: 51932
+
+=== Results ===
+Solution: [0, 1, 4, 38, 44, 46, 55, 62, 67, 77]
+Length: 55
+Total time: 113.10 ms
+Total nodes: 3359831
+*** OPTIMAL SOLUTION FOUND ***

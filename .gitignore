@@ -1,0 +1,61 @@
+# Build artifacts
+build/
+*.o
+*.obj
+
+# Executables
+golomb_v*
+golomb_mpi_*
+test_correctness
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Results (optional - uncomment to ignore generated data)
+# results/sequential/*.csv
+# results/parallel/*.csv
+# results/plots/*.png
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# MPI related
+hostfile
+machinefile
+
+# SLURM output
+slurm-*.out
+*.slurm.out
+
+# Compiled Python
+*.pyd
+*.so
+
+# Virtual environments
+venv/
+.env/
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+
+# Documentation builds
+docs/_build/
+docs/html/
+
+# Claude Code
+.claude/

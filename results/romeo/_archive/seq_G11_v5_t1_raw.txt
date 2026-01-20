@@ -1,0 +1,12 @@
+=== Golomb Ruler Solver v5: Final Sequential ===
+Order: 11 (symmetry enabled)
+
+=== Golomb G11 ===
+Solution: [0, 1, 4, 13, 28, 33, 47, 54, 64, 70, 72]
+Length: 72
+Time: 3058.07 ms
+Nodes explored: 43152641
+Nodes pruned: 104816111
+Pruning ratio: 70.8%
+
+*** OPTIMAL SOLUTION FOUND ***

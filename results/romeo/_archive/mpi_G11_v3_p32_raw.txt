@@ -1,0 +1,12 @@
+=== Golomb Ruler Solver - MPI v3: Optimized ===
+Order: 11, Processes: 32
+Prefix depth: 5
+Initial bound: 96
+Subtrees: 1843134
+
+=== Results ===
+Solution: [0, 1, 4, 13, 28, 33, 47, 54, 64, 70, 72]
+Length: 72
+Time: 1857.27 ms
+Nodes: 44678816
+*** OPTIMAL ***

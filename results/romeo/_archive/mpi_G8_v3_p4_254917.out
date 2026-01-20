@@ -1,0 +1,54 @@
+Loading x86_64 (no gpu) environment
+Environment loaded. Spack available.
+=== Romeo 2025 Environment ===
+Architecture: x64cpu
+Compiler: g++ (GCC) 11.4.1 20231218 (Red Hat 11.4.1-3)
+MPI: mpirun (Open MPI) 4.1.7
+
+Spack packages:
+-- linux-rhel9-zen4 / no compilers ------------------------------
+openmpi@4.1.7
+==============================================
+  Golomb Ruler Solver - MPI Benchmark
+  Romeo 2025 - Architecture: x64cpu
+==============================================
+Job ID: 254917
+Nodes: romeo-c035
+Scratch: /scratch_p/nimarano/254917
+Start time: Tue Jan  6 08:22:40 CET 2026
+Order: 8
+MPI Version: v3
+Processes: 4
+Nodes requested: 1
+==============================================
+
+Using prefix depth: 3
+
+Running: mpirun -np 4 ./build/golomb_mpi_v3 8 --depth 3
+
+=== Raw Output ===
+--------------------------------------------------------------------------
+mpirun was unable to launch the specified application as it could not access
+or execute an executable:
+
+Executable: ./build/golomb_mpi_v3
+Node: romeo-c035
+
+while attempting to start process rank 0.
+--------------------------------------------------------------------------
+4 total processes failed to start
+
+=== CSV Result ===
+version,order,procs,time_ms,speedup,efficiency,nodes,solution,length
+3,8,4,0,0,0,0,"",0
+
+=== Copying results to home directory ===
+'results/romeo/mpi_G8_v3_p4.csv' -> '/home/nimarano/golomb/results/romeo/mpi_G8_v3_p4.csv'
+'results/romeo/mpi_G8_v3_p4_raw.txt' -> '/home/nimarano/golomb/results/romeo/mpi_G8_v3_p4_raw.txt'
+
+=== Cleaning up scratch ===
+
+==============================================
+Results saved to: /home/nimarano/golomb/results/romeo/mpi_G8_v3_p4.csv
+End time: Tue Jan  6 08:22:40 CET 2026
+==============================================

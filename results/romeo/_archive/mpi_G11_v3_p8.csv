@@ -1,0 +1,2 @@
+version,order,procs,time_ms,speedup,efficiency,nodes,solution,length
+3,11,8,1318.41,0,0,0,"[0, 1, 4, 13, 28, 33, 47, 54, 64, 70, 72]",72

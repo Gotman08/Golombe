@@ -1,0 +1,13 @@
+=== Golomb Ruler Solver v1: Sequential ===
+SIMD/AVX2: Enabled
+Order: 11
+
+=== Golomb G11 ===
+Solution: [0, 1, 4, 13, 28, 33, 47, 54, 64, 70, 72]
+Length: 72
+Time: 5093.03 ms
+Nodes explored: 43152640
+Nodes pruned: 104815909
+Pruning ratio: 70.8%
+
+*** OPTIMAL SOLUTION FOUND ***

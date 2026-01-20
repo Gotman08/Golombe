@@ -1,0 +1,31 @@
+Loading x86_64 (no gpu) environment
+Environment loaded. Spack available.
+=== Romeo 2025 Environment ===
+Architecture: x64cpu
+Compiler: g++ (GCC) 11.4.1 20231218 (Red Hat 11.4.1-3)
+MPI: mpirun (Open MPI) 4.1.7
+
+Spack packages:
+-- linux-rhel9-zen4 / no compilers ------------------------------
+openmpi@4.1.7
+=== Golomb Ruler Benchmark ===
+Version: v2
+Order: G12
+Threads: 1
+Start: Tue Jan  6 09:44:05 CET 2026
+=== Golomb Ruler Solver v2: OpenMP ===
+Threads: 1 (HT enabled, 96 physical)
+SIMD/AVX2: Enabled
+Order: 12
+
+=== Golomb G12 ===
+Solution: [0, 2, 6, 24, 29, 40, 43, 55, 68, 75, 76, 85]
+Length: 85
+Time: 44738.66 ms
+Nodes explored: 343450194
+Nodes pruned: 977768758
+Pruning ratio: 74.0%
+
+*** OPTIMAL SOLUTION FOUND ***
+Results saved to results/romeo/seq_G12_v2_t1.csv
+End: Tue Jan  6 09:44:50 CET 2026

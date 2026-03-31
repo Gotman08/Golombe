@@ -66,19 +66,19 @@ check-mpi:
 	@which $(MPICXX) > /dev/null 2>&1 || { echo "Error: $(MPICXX) not found. Install MPI (OpenMPI/MPICH) or set MPICXX."; exit 1; }
 
 # v3: Hybrid MPI+OpenMP (distributed + multi-threaded with AVX2)
-v3: check-mpi $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+v3: $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | check-mpi $(BUILD_DIR)
 	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V3) $< $(COMMON_SRCS)
 
 # v3 without AVX2
-v3_noavx: check-mpi $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+v3_noavx: $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | check-mpi $(BUILD_DIR)
 	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V3)_noavx $< $(COMMON_SRCS)
 
 # v4: Pure Hypercube MPI+OpenMP (decentralized, all ranks equal)
-v4: check-mpi $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+v4: $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | check-mpi $(BUILD_DIR)
 	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4) $< $(COMMON_SRCS)
 
 # v4 without AVX2
-v4_noavx: check-mpi $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+v4_noavx: $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | check-mpi $(BUILD_DIR)
 	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4)_noavx $< $(COMMON_SRCS)
 
 # ===== BUILD ALL =====

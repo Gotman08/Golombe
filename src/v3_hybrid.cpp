@@ -23,6 +23,9 @@
 #include "golomb/golomb.hpp"
 #include "golomb/greedy.hpp"
 #include "golomb/bitset256.hpp"
+#include "golomb/difference.hpp"
+#include "golomb/config.hpp"
+#include "golomb/csv_output.hpp"
 #include <iostream>
 #include <vector>
 #include <cstdlib>
@@ -34,9 +37,6 @@
 #include <atomic>
 #include <mutex>
 
-#ifdef USE_AVX2
-#include <immintrin.h>
-#endif
 
 // ============================================================================
 // MPI Error Checking Macro
@@ -286,7 +286,6 @@ struct Result {
     int order;               ///< Order of the ruler
     uint64_t nodesExplored;  ///< Number of nodes explored
     uint64_t nodesPruned;    ///< Number of nodes pruned
-    double timeMs;           ///< Time spent (currently unused)
 };
 
 // ============================================================================
@@ -305,6 +304,8 @@ struct alignas(64) ThreadState {
     int markCount;                 ///< Number of marks placed
     uint64_t localNodesExplored;   ///< Thread-local explored counter
     uint64_t localNodesPruned;     ///< Thread-local pruned counter
+    int cachedBound;               ///< Cached local bound (reduces atomic loads)
+    int checkCounter;              ///< Counter for bound refresh interval
 };
 
 // ============================================================================
@@ -533,6 +534,8 @@ private:
 
         state.localNodesExplored = 0;
         state.localNodesPruned = 0;
+        state.cachedBound = localBestLength.load(std::memory_order_relaxed);
+        state.checkCounter = 0;
     }
 
     /**
@@ -547,13 +550,10 @@ private:
     void branchAndBound(ThreadState& state, int depth) {
         state.localNodesExplored++;
 
-        // Bound caching with periodic MPI check
-        static thread_local int cachedBound = INT_MAX;
-        static thread_local int checkCounter = 0;
-
-        if (++checkCounter >= 16384) {
-            cachedBound = localBestLength.load(std::memory_order_relaxed);
-            checkCounter = 0;
+        // Bound caching with periodic MPI check (uses per-state counters, not static thread_local)
+        if (++state.checkCounter >= golomb::config::LOCAL_CACHE_REFRESH_INTERVAL) {
+            state.cachedBound = localBestLength.load(std::memory_order_relaxed);
+            state.checkCounter = 0;
 
             // Periodic MPI bound check (less frequent)
             if (state.localNodesExplored % BOUND_CHECK_INTERVAL == 0) {
@@ -566,7 +566,7 @@ private:
                             if (localBestLength.compare_exchange_weak(current, newBound))
                                 break;
                         }
-                        cachedBound = newBound;
+                        state.cachedBound = newBound;
                     }
                 }
             }
@@ -575,12 +575,12 @@ private:
         if (depth == order) [[unlikely]] {
             int length = state.marks[state.markCount - 1];
             updateBestSolution(length, state);
-            cachedBound = localBestLength.load(std::memory_order_relaxed);
+            state.cachedBound = localBestLength.load(std::memory_order_relaxed);
             return;
         }
 
         int lastMark = state.marks[state.markCount - 1];
-        int currentBest = std::min(cachedBound, *globalBound);
+        int currentBest = std::min(state.cachedBound, *globalBound);
         int maxPos = currentBest - 1;
 
         for (int pos = lastMark + 1; pos <= maxPos; ++pos) {
@@ -594,15 +594,7 @@ private:
             int newDiffCount = 0;
             bool valid;
 
-#ifdef USE_AVX2
-            if (useSIMD && state.markCount >= 4) {
-                valid = checkDifferencesAVX2(state, pos, tempDiffs, newDiffCount);
-            } else {
-                valid = checkDifferencesScalar(state, pos, tempDiffs, newDiffCount);
-            }
-#else
-            valid = checkDifferencesScalar(state, pos, tempDiffs, newDiffCount);
-#endif
+            valid = golomb::checkDifferences(state, pos, tempDiffs, newDiffCount, useSIMD);
 
             if (valid) {
                 state.marks[state.markCount++] = pos;
@@ -615,81 +607,11 @@ private:
                 for (int i = 0; i < newDiffCount; ++i)
                     state.usedDiffs.clear(tempDiffs[i]);
 
-                currentBest = std::min(cachedBound, *globalBound);
+                currentBest = std::min(state.cachedBound, *globalBound);
                 maxPos = currentBest - 1;
             }
         }
     }
-
-    /**
-     * @brief Checks differences using scalar implementation.
-     *
-     * @param[in]  state     Current thread state
-     * @param[in]  pos       Candidate position
-     * @param[out] tempDiffs Array to store new differences
-     * @param[out] diffCount Number of differences stored
-     * @return true if position is valid, false if collision found
-     */
-    inline bool checkDifferencesScalar(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
-        diffCount = 0;
-        for (int i = 0; i < state.markCount; ++i) {
-            int diff = pos - state.marks[i];
-            if (diff >= MAX_LENGTH || state.usedDiffs.test(diff)) {
-                return false;
-            }
-            tempDiffs[diffCount++] = diff;
-        }
-        return true;
-    }
-
-#ifdef USE_AVX2
-    /**
-     * @brief Checks differences using AVX2 SIMD vectorization.
-     *
-     * Processes 8 marks at a time for improved performance.
-     *
-     * @param[in]  state     Current thread state
-     * @param[in]  pos       Candidate position
-     * @param[out] tempDiffs Array to store new differences
-     * @param[out] diffCount Number of differences stored
-     * @return true if position is valid, false if collision found
-     */
-    inline bool checkDifferencesAVX2(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
-        __m256i vpos = _mm256_set1_epi32(pos);
-
-        alignas(32) int allDiffs[MAX_ORDER];
-        int totalDiffs = 0;
-        int i = 0;
-
-        for (; i + 8 <= state.markCount; i += 8) {
-            __m256i vmarks = _mm256_loadu_si256((__m256i*)&state.marks[i]);
-            __m256i vdiffs = _mm256_sub_epi32(vpos, vmarks);
-            _mm256_storeu_si256((__m256i*)&allDiffs[totalDiffs], vdiffs);
-            totalDiffs += 8;
-        }
-
-        for (; i < state.markCount; ++i) {
-            allDiffs[totalDiffs++] = pos - state.marks[i];
-        }
-
-        BitSet256 checkMask;
-        checkMask.reset();
-
-        for (int j = 0; j < totalDiffs; ++j) {
-            int d = allDiffs[j];
-            if (d >= MAX_LENGTH) return false;
-            checkMask.set(d);
-        }
-
-        if (state.usedDiffs.hasCollisionAVX2(checkMask)) return false;
-
-        diffCount = totalDiffs;
-        for (int j = 0; j < totalDiffs; ++j) {
-            tempDiffs[j] = allDiffs[j];
-        }
-        return true;
-    }
-#endif
 
     /**
      * @brief Thread-safe update of the best solution with MPI broadcast.
@@ -817,53 +739,18 @@ MPI_Datatype createSubtreeType() {
  */
 MPI_Datatype createResultType() {
     MPI_Datatype type;
-    int bl[] = {MAX_ORDER, 1, 1, 1, 1, 1};
-    MPI_Aint disp[6] = {
+    int bl[] = {MAX_ORDER, 1, 1, 1, 1};
+    MPI_Aint disp[5] = {
         offsetof(Result, marks), offsetof(Result, length),
         offsetof(Result, order), offsetof(Result, nodesExplored),
-        offsetof(Result, nodesPruned), offsetof(Result, timeMs)
+        offsetof(Result, nodesPruned)
     };
-    MPI_Datatype types[] = {MPI_INT, MPI_INT, MPI_INT, MPI_UINT64_T, MPI_UINT64_T, MPI_DOUBLE};
-    MPI_Type_create_struct(6, bl, disp, types, &type);
+    MPI_Datatype types[] = {MPI_INT, MPI_INT, MPI_INT, MPI_UINT64_T, MPI_UINT64_T};
+    MPI_Type_create_struct(5, bl, disp, types, &type);
     MPI_Type_commit(&type);
     return type;
 }
 
-// ============================================================================
-// CSV Output
-// ============================================================================
-
-/**
- * @brief Appends benchmark results to a CSV file.
- *
- * @param filename   Output CSV file path
- * @param order      Order of the Golomb ruler
- * @param mpiProcs   Number of MPI processes
- * @param ompThreads Number of OpenMP threads per process
- * @param timeMs     Total execution time in milliseconds
- * @param nodes      Total nodes explored
- * @param pruned     Total nodes pruned
- * @param solution   Best solution found
- */
-void appendCSV(const std::string& filename, int order, int mpiProcs, int ompThreads,
-               double timeMs, uint64_t nodes, uint64_t pruned, const GolombRuler& solution) {
-    std::ifstream check(filename);
-    bool header = !check.good();
-    check.close();
-
-    std::ofstream f(filename, std::ios::app);
-    if (!f.is_open()) return;
-
-    if (header) {
-        f << "version,order,mpi_procs,omp_threads,total_workers,time_ms,nodes,pruned,solution,length\n";
-    }
-
-    f << 3 << "," << order << "," << mpiProcs << "," << ompThreads << ","
-      << (mpiProcs * ompThreads) << ","
-      << std::fixed << std::setprecision(2) << timeMs << ","
-      << nodes << "," << pruned << ","
-      << "\"" << solution.toString() << "\"," << solution.length << "\n";
-}
 
 // ============================================================================
 // Main
@@ -1065,7 +952,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (!csvFile.empty()) {
-            appendCSV(csvFile, order, size, numThreads, totalTime, totalNodes, totalPruned, globalBest);
+            golomb::appendResultCSV_MPI(csvFile, 3, order, size, numThreads, totalTime, totalNodes, totalPruned, globalBest);
         }
 
     } else {
@@ -1097,7 +984,6 @@ int main(int argc, char* argv[]) {
             tracer.endCompute();
 
             Result result = solver.getResult();
-            result.timeMs = 0;
 
             double sendStart = MPI_Wtime();
             MPI_Send(&result, 1, resultType, 0, TAG_RESULT, MPI_COMM_WORLD);

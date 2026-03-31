@@ -76,6 +76,10 @@ void writeResultCSV(const std::string& filename,
              << stats.bestSolution.length << '\n';
     }
 
+    if (!file.good()) {
+        std::cerr << "Warning: Error writing to " << filename << '\n';
+    }
+
     file.close();
     std::cout << "Results written to " << filename << '\n';
 }

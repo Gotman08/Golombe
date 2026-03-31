@@ -48,8 +48,8 @@ main() {
 # This replaces the old 'module load' system
 ${env_command}
 
-# Load OpenMPI for parallel builds (use hash for reliability)
-spack load /kfjcqqr 2>/dev/null || spack load openmpi 2>/dev/null || true
+# Load OpenMPI for parallel builds
+spack load openmpi 2>/dev/null || spack load openmpi@4.1.7 2>/dev/null || true
 
 # Verify environment is loaded
 echo \"=== Romeo 2025 Environment ===\"

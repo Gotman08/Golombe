@@ -1,5 +1,5 @@
 # Golomb Ruler Solver - Makefile
-# Three versions: Sequential, OpenMP, Hybrid MPI+OpenMP
+# Four versions: Sequential, OpenMP, Hybrid MPI+OpenMP, Hypercube MPI+OpenMP
 
 CXX = g++
 MPICXX = mpicxx
@@ -27,14 +27,14 @@ RESULTS_DIR = results
 
 # Common source files
 COMMON_SRCS = $(COMMON_DIR)/validation.cpp $(COMMON_DIR)/timing.cpp
-COMMON_HDRS = $(INCLUDE_DIR)/golomb/golomb.hpp $(INCLUDE_DIR)/golomb/greedy.hpp $(INCLUDE_DIR)/golomb/bitset256.hpp
+COMMON_HDRS = $(INCLUDE_DIR)/golomb/golomb.hpp $(INCLUDE_DIR)/golomb/greedy.hpp $(INCLUDE_DIR)/golomb/bitset256.hpp \
+              $(INCLUDE_DIR)/golomb/config.hpp $(INCLUDE_DIR)/golomb/difference.hpp $(INCLUDE_DIR)/golomb/csv_output.hpp
 
 # Executables
 V1 = golomb_v1
 V2 = golomb_v2
 V3 = golomb_v3
 V4 = golomb_v4
-V5 = golomb_v5
 
 # Default target
 all: v1 v2
@@ -61,39 +61,34 @@ v2: $(SRC_DIR)/v2_openmp.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
 v2_noavx: $(SRC_DIR)/v2_openmp.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V2)_noavx $< $(COMMON_SRCS)
 
+# MPI compiler check
+check-mpi:
+	@which $(MPICXX) > /dev/null 2>&1 || { echo "Error: $(MPICXX) not found. Install MPI (OpenMPI/MPICH) or set MPICXX."; exit 1; }
+
 # v3: Hybrid MPI+OpenMP (distributed + multi-threaded with AVX2)
-v3: $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+v3: check-mpi $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
 	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V3) $< $(COMMON_SRCS)
 
 # v3 without AVX2
-v3_noavx: $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+v3_noavx: check-mpi $(SRC_DIR)/v3_hybrid.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
 	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V3)_noavx $< $(COMMON_SRCS)
 
 # v4: Pure Hypercube MPI+OpenMP (decentralized, all ranks equal)
-v4: $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+v4: check-mpi $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
 	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) $(AVX_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4) $< $(COMMON_SRCS)
 
 # v4 without AVX2
-v4_noavx: $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
+v4_noavx: check-mpi $(SRC_DIR)/v4_hypercube.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
 	$(MPICXX) $(CXXFLAGS) $(OPENMP_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V4)_noavx $< $(COMMON_SRCS)
-
-# v5: Pure MPI (no OpenMP, hypercube topology)
-v5: $(SRC_DIR)/v5_pure_mpi.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(MPICXX) $(CXXFLAGS) $(AVX_FLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V5) $< $(COMMON_SRCS)
-
-# v5 without AVX2
-v5_noavx: $(SRC_DIR)/v5_pure_mpi.cpp $(COMMON_SRCS) $(COMMON_HDRS) | $(BUILD_DIR)
-	$(MPICXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -I$(SRC_DIR) -o $(BUILD_DIR)/$(V5)_noavx $< $(COMMON_SRCS)
 
 # ===== BUILD ALL =====
 
 sequential: v1
 openmp: v2
 hybrid: v3 v4
-parallel: v3 v4 v5
+parallel: v3 v4
 hypercube: v4
-mpi: v3 v4 v5
-purempi: v5
+mpi: v3 v4
 
 # ===== TEST TARGETS =====
 
@@ -131,12 +126,8 @@ test_v4: v4
 	@echo "=== Testing v4 (Pure Hypercube MPI+OpenMP) ==="
 	OMP_NUM_THREADS=2 mpirun --oversubscribe -np 4 ./$(BUILD_DIR)/$(V4) 8 --threads 2
 
-test_v5: v5
-	@echo "=== Testing v5 (Pure MPI, no OpenMP) ==="
-	mpirun --oversubscribe -np 4 ./$(BUILD_DIR)/$(V5) 8
-
 # Run all tests
-test_all: test_unit test_openmp_unit test test_mpi test_v4 test_v5
+test_all: test_unit test_openmp_unit test test_mpi test_v4
 
 # ===== BENCHMARK TARGETS =====
 
@@ -174,13 +165,6 @@ benchmark_v4: v4
 			echo "--- $$np ranks x $$t threads (hypercube) ---"; \
 			OMP_NUM_THREADS=$$t mpirun --oversubscribe -np $$np ./$(BUILD_DIR)/$(V4) 12 --threads $$t 2>&1 | grep -E "Time|Length"; \
 		done; \
-	done
-
-benchmark_v5: v5
-	@echo "=== v5 Pure MPI Benchmark (no OpenMP) ==="
-	@for np in 2 4 8 16 32; do \
-		echo "--- $$np MPI ranks ---"; \
-		mpirun --oversubscribe -np $$np ./$(BUILD_DIR)/$(V5) 11 2>&1 | grep -E "Time|Length"; \
 	done
 
 # ===== CLEAN =====
@@ -235,14 +219,12 @@ help:
 	@echo "  v2         - OpenMP version (multi-threaded + AVX2)"
 	@echo "  v3         - Hybrid MPI+OpenMP version (master/worker)"
 	@echo "  v4         - Hypercube MPI+OpenMP (decentralized, O(log P) comm)"
-	@echo "  v5         - Pure MPI (no OpenMP, hypercube, for MPI scaling)"
 	@echo ""
 	@echo "Variants without AVX2:"
 	@echo "  v1_noavx   - Sequential without AVX2"
 	@echo "  v2_noavx   - OpenMP without AVX2"
 	@echo "  v3_noavx   - Hybrid without AVX2"
 	@echo "  v4_noavx   - Hypercube without AVX2"
-	@echo "  v5_noavx   - Pure MPI without AVX2"
 	@echo ""
 	@echo "Test targets:"
 	@echo "  test_unit      - Run unit tests (test_correctness.cpp)"
@@ -251,7 +233,6 @@ help:
 	@echo "  test           - Integration test of v1 and v2"
 	@echo "  test_mpi       - Integration test of v3 (MPI master/worker)"
 	@echo "  test_v4        - Integration test of v4 (MPI+OpenMP hypercube)"
-	@echo "  test_v5        - Integration test of v5 (Pure MPI hypercube)"
 	@echo "  test_all       - Run all tests"
 	@echo ""
 	@echo "Benchmark targets:"
@@ -259,7 +240,6 @@ help:
 	@echo "  benchmark_v2   - Benchmark v2 with various thread counts"
 	@echo "  benchmark_v3   - Benchmark v3 with various configurations"
 	@echo "  benchmark_v4   - Benchmark v4 with various hypercube sizes"
-	@echo "  benchmark_v5   - Benchmark v5 with various MPI process counts"
 	@echo ""
 	@echo "Romeo HPC targets:"
 	@echo "  romeo-setup    - First-time setup: copy SSH key to Romeo"
@@ -290,7 +270,7 @@ help:
 	@echo "  make v2 && OMP_NUM_THREADS=32 ./build/golomb_v2 12"
 	@echo "  make v3 && OMP_NUM_THREADS=8 mpirun -np 4 ./build/golomb_v3 14 --threads 8"
 	@echo "  make v4 && OMP_NUM_THREADS=8 mpirun -np 8 ./build/golomb_v4 14 --threads 8"
-	@echo "  make v5 && mpirun -np 64 ./build/golomb_v5 13"
+	@echo "  make v4 && OMP_NUM_THREADS=8 mpirun -np 16 ./build/golomb_v4 13 --threads 8"
 	@echo ""
 	@echo "Romeo workflow:"
 	@echo "  make romeo-setup                 # First time only (copies SSH key)"
@@ -358,9 +338,9 @@ romeo: romeo-deploy romeo-bench
 	@echo "  make romeo-fetch   - Download results (when jobs complete)"
 	@echo "  make romeo-wait    - Auto-wait and fetch"
 
-.PHONY: all v1 v2 v3 v4 v5 v1_noavx v2_noavx v3_noavx v4_noavx v5_noavx
-.PHONY: sequential openmp hybrid parallel hypercube mpi purempi
-.PHONY: test test_unit test_openmp_unit test_mpi_unit test_mpi test_v4 test_v5 test_all
-.PHONY: benchmark benchmark_v1 benchmark_v2 benchmark_v3 benchmark_v4 benchmark_v5
+.PHONY: all v1 v2 v3 v4 v1_noavx v2_noavx v3_noavx v4_noavx check-mpi
+.PHONY: sequential openmp hybrid parallel hypercube mpi
+.PHONY: test test_unit test_openmp_unit test_mpi_unit test_mpi test_v4 test_all
+.PHONY: benchmark benchmark_v1 benchmark_v2 benchmark_v3 benchmark_v4
 .PHONY: romeo romeo-setup romeo-deploy romeo-bench romeo-bench-quick romeo-status romeo-fetch romeo-wait
 .PHONY: clean clean-csv clean-plots clean-results clean-docs docs help

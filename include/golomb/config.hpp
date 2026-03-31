@@ -19,13 +19,8 @@ namespace config {
 // ============================================================================
 // Core Algorithm Limits
 // ============================================================================
-
-/// Maximum ruler length for bitset sizing
-/// G11 = 72, G12 = 85, using 256 for safety margin
-constexpr int MAX_LENGTH = 256;
-
-/// Maximum supported order (number of marks)
-constexpr int MAX_ORDER = 20;
+// Note: MAX_LENGTH (256), MAX_ORDER (20) are defined in golomb.hpp (global scope).
+// Use ::MAX_LENGTH and ::MAX_ORDER to reference them.
 
 /// Maximum order with known optimal length (from OEIS A003022)
 constexpr int MAX_KNOWN_ORDER = 14;
@@ -48,7 +43,11 @@ constexpr int BOUND_CHECK_INTERVAL_V4 = 10000;
 
 /// Local bound cache refresh interval (atomic loads between cache updates)
 /// Trade-off: lower = fresher bounds, higher = less atomic contention
-constexpr int LOCAL_CACHE_REFRESH_INTERVAL = 8192;
+constexpr int LOCAL_CACHE_REFRESH_INTERVAL = 16384;
+
+/// Local bound cache refresh interval for v4 (hypercube)
+/// Lower interval for faster peer-to-peer bound propagation
+constexpr int LOCAL_CACHE_REFRESH_INTERVAL_V4 = 4096;
 
 /// MPI bound check frequency (how often to probe for MPI messages)
 /// In v4: check MPI every N local cache refreshes

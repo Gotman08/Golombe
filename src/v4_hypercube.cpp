@@ -30,6 +30,9 @@
 #include "golomb/golomb.hpp"
 #include "golomb/greedy.hpp"
 #include "golomb/bitset256.hpp"
+#include "golomb/difference.hpp"
+#include "golomb/config.hpp"
+#include "golomb/csv_output.hpp"
 #include <iostream>
 #include <vector>
 #include <cstdlib>
@@ -42,9 +45,6 @@
 #include <mutex>
 #include <cmath>
 
-#ifdef USE_AVX2
-#include <immintrin.h>
-#endif
 
 #include <sstream>
 
@@ -368,6 +368,9 @@ struct alignas(64) ThreadState {
     int markCount;                ///< Number of marks currently placed
     uint64_t localNodesExplored;  ///< Counter for nodes explored by this thread
     uint64_t localNodesPruned;    ///< Counter for nodes pruned by this thread
+    int cachedBound;              ///< Cached global bound (reduces atomic loads)
+    int checkCounter;             ///< Counter for bound refresh interval
+    int mpiCheckCounter;          ///< Counter for MPI bound check interval
 };
 
 // ============================================================================
@@ -539,13 +542,15 @@ public:
                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
             if (tryUpdateBound(newBound)) {
-                // Forward to other neighbors (except source)
-                for (int neighbor : neighbors) {
-                    if (neighbor != status.MPI_SOURCE && newBound < lastBroadcastBound) {
-                        MPI_Send(&newBound, 1, MPI_INT, neighbor, TAG_BOUND, MPI_COMM_WORLD);
+                // Forward to other neighbors (except source) if this is a new best
+                if (newBound < lastBroadcastBound) {
+                    lastBroadcastBound = newBound;
+                    for (int neighbor : neighbors) {
+                        if (neighbor != status.MPI_SOURCE) {
+                            MPI_Send(&newBound, 1, MPI_INT, neighbor, TAG_BOUND, MPI_COMM_WORLD);
+                        }
                     }
                 }
-                lastBroadcastBound = std::min(lastBroadcastBound, newBound);
             }
         }
     }
@@ -726,6 +731,9 @@ private:
 
         state.localNodesExplored = 0;
         state.localNodesPruned = 0;
+        state.cachedBound = sharedBound->load(std::memory_order_relaxed);
+        state.checkCounter = 0;
+        state.mpiCheckCounter = 0;
     }
 
     /**
@@ -745,25 +753,21 @@ private:
     void branchAndBound(ThreadState& state, int depth) {
         state.localNodesExplored++;
 
-        // Bound caching with periodic MPI check
-        static thread_local int cachedBound = INT_MAX;
-        static thread_local int checkCounter = 0;
-        static thread_local int mpiCheckCounter = 0;
-
-        if (++checkCounter >= 4096) {
-            cachedBound = sharedBound->load(std::memory_order_relaxed);
-            checkCounter = 0;
+        // Bound caching with periodic MPI check (uses per-state counters, not static thread_local)
+        if (++state.checkCounter >= golomb::config::LOCAL_CACHE_REFRESH_INTERVAL_V4) {
+            state.cachedBound = sharedBound->load(std::memory_order_relaxed);
+            state.checkCounter = 0;
 
             // Periodic MPI bound check
-            if (++mpiCheckCounter >= 2) {
-                mpiCheckCounter = 0;
+            if (++state.mpiCheckCounter >= 2) {
+                state.mpiCheckCounter = 0;
                 #pragma omp critical(mpi_bound_check)
                 {
                     boundManager->checkAndForwardBounds();
                     int mgrBound = boundManager->getBound();
-                    if (mgrBound < cachedBound) {
+                    if (mgrBound < state.cachedBound) {
                         sharedBound->store(mgrBound, std::memory_order_relaxed);
-                        cachedBound = mgrBound;
+                        state.cachedBound = mgrBound;
                     }
                 }
             }
@@ -772,12 +776,12 @@ private:
         if (depth == order) [[unlikely]] {
             int length = state.marks[state.markCount - 1];
             updateBestSolution(length, state);
-            cachedBound = sharedBound->load(std::memory_order_relaxed);
+            state.cachedBound = sharedBound->load(std::memory_order_relaxed);
             return;
         }
 
         int lastMark = state.marks[state.markCount - 1];
-        int currentBest = cachedBound;
+        int currentBest = state.cachedBound;
         int maxPos = currentBest - 1;
 
         for (int pos = lastMark + 1; pos <= maxPos; ++pos) {
@@ -791,15 +795,7 @@ private:
             int newDiffCount = 0;
             bool valid;
 
-#ifdef USE_AVX2
-            if (useSIMD && state.markCount >= 4) {
-                valid = checkDifferencesAVX2(state, pos, tempDiffs, newDiffCount);
-            } else {
-                valid = checkDifferencesScalar(state, pos, tempDiffs, newDiffCount);
-            }
-#else
-            valid = checkDifferencesScalar(state, pos, tempDiffs, newDiffCount);
-#endif
+            valid = golomb::checkDifferences(state, pos, tempDiffs, newDiffCount, useSIMD);
 
             if (valid) {
                 state.marks[state.markCount++] = pos;
@@ -813,90 +809,11 @@ private:
                     state.usedDiffs.clear(tempDiffs[i]);
 
                 // Update cached bound after recursive call
-                currentBest = cachedBound;
+                currentBest = state.cachedBound;
                 maxPos = currentBest - 1;
             }
         }
     }
-
-    /**
-     * @brief Checks if a new mark creates valid differences (scalar version).
-     *
-     * Iterates through all existing marks and computes differences.
-     * Returns false immediately if any difference is already used.
-     *
-     * @param state Current thread state.
-     * @param pos Candidate mark position.
-     * @param[out] tempDiffs Array to store new differences.
-     * @param[out] diffCount Number of differences computed.
-     * @return true if all differences are valid, false otherwise.
-     *
-     * @complexity O(markCount)
-     */
-    inline bool checkDifferencesScalar(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
-        diffCount = 0;
-        for (int i = 0; i < state.markCount; ++i) {
-            int diff = pos - state.marks[i];
-            if (diff >= MAX_LENGTH || state.usedDiffs.test(diff)) {
-                return false;
-            }
-            tempDiffs[diffCount++] = diff;
-        }
-        return true;
-    }
-
-#ifdef USE_AVX2
-    /**
-     * @brief Checks if a new mark creates valid differences (AVX2 version).
-     *
-     * Uses AVX2 SIMD to compute 8 differences in parallel, then checks
-     * for collisions using BitSet256::hasCollisionAVX2.
-     *
-     * @param state Current thread state.
-     * @param pos Candidate mark position.
-     * @param[out] tempDiffs Array to store new differences.
-     * @param[out] diffCount Number of differences computed.
-     * @return true if all differences are valid, false otherwise.
-     *
-     * @note Only used when markCount >= 4 for efficiency.
-     * @complexity O(markCount / 8) for SIMD part + O(1) collision check
-     */
-    inline bool checkDifferencesAVX2(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
-        __m256i vpos = _mm256_set1_epi32(pos);
-
-        alignas(32) int allDiffs[MAX_ORDER];
-        int totalDiffs = 0;
-        int i = 0;
-
-        for (; i + 8 <= state.markCount; i += 8) {
-            __m256i vmarks = _mm256_loadu_si256((__m256i*)&state.marks[i]);
-            __m256i vdiffs = _mm256_sub_epi32(vpos, vmarks);
-            _mm256_storeu_si256((__m256i*)&allDiffs[totalDiffs], vdiffs);
-            totalDiffs += 8;
-        }
-
-        for (; i < state.markCount; ++i) {
-            allDiffs[totalDiffs++] = pos - state.marks[i];
-        }
-
-        BitSet256 checkMask;
-        checkMask.reset();
-
-        for (int j = 0; j < totalDiffs; ++j) {
-            int d = allDiffs[j];
-            if (d >= MAX_LENGTH) return false;
-            checkMask.set(d);
-        }
-
-        if (state.usedDiffs.hasCollisionAVX2(checkMask)) return false;
-
-        diffCount = totalDiffs;
-        for (int j = 0; j < totalDiffs; ++j) {
-            tempDiffs[j] = allDiffs[j];
-        }
-        return true;
-    }
-#endif
 
     /**
      * @brief Updates the best solution if a better one is found.
@@ -1049,44 +966,6 @@ std::vector<Subtree> getMySubtrees(const std::vector<Subtree>& allSubtrees, int 
 // ============================================================================
 // CSV Output
 // ============================================================================
-
-/**
- * @brief Appends benchmark results to a CSV file.
- *
- * Creates the file with headers if it doesn't exist, then appends
- * a new row with the benchmark results. Uses version=4 to identify
- * this as the hypercube implementation.
- *
- * @param filename Output CSV file path.
- * @param order Golomb ruler order.
- * @param mpiProcs Number of MPI processes used.
- * @param ompThreads Number of OpenMP threads per process.
- * @param timeMs Total execution time in milliseconds.
- * @param nodes Total nodes explored.
- * @param pruned Total nodes pruned.
- * @param solution Best solution found.
- *
- * @note Only rank 0 should call this function.
- */
-void appendCSV(const std::string& filename, int order, int mpiProcs, int ompThreads,
-               double timeMs, uint64_t nodes, uint64_t pruned, const GolombRuler& solution) {
-    std::ifstream check(filename);
-    bool header = !check.good();
-    check.close();
-
-    std::ofstream f(filename, std::ios::app);
-    if (!f.is_open()) return;
-
-    if (header) {
-        f << "version,order,mpi_procs,omp_threads,total_workers,time_ms,nodes,pruned,solution,length\n";
-    }
-
-    f << 4 << "," << order << "," << mpiProcs << "," << ompThreads << ","
-      << (mpiProcs * ompThreads) << ","
-      << std::fixed << std::setprecision(2) << timeMs << ","
-      << nodes << "," << pruned << ","
-      << "\"" << solution.toString() << "\"," << solution.length << "\n";
-}
 
 // ============================================================================
 // Main
@@ -1327,7 +1206,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (!csvFile.empty()) {
-            appendCSV(csvFile, order, size, numThreads, totalTime, totalNodes, totalPruned, globalBest);
+            golomb::appendResultCSV_MPI(csvFile, 4, order, size, numThreads, totalTime, totalNodes, totalPruned, globalBest);
             std::cout << "Results saved to " << csvFile << "\n";
         }
     }

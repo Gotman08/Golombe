@@ -130,55 +130,6 @@ SLURM_EOF
 }
 
 # =============================================================================
-# Generate v5 Pure MPI Job
-# =============================================================================
-
-generate_v5_job() {
-    local order=$1
-    local mpi_procs=$2
-    local nodes=$3
-
-    local time_limit=$(get_time_limit $order)
-    local tasks_per_node=$((mpi_procs / nodes))
-    local mem_per_node=$((tasks_per_node * 2))  # 2GB per MPI process
-
-    local job_name="mpi_G${order}_v5_n${nodes}_p${mpi_procs}"
-    local job_file="${JOBS_DIR}/${job_name}.slurm"
-
-    cat > "$job_file" << SLURM_EOF
-#!/bin/bash
-#SBATCH --job-name=${job_name}
-#SBATCH --output=${job_name}_%j.out
-#SBATCH --error=${job_name}_%j.err
-#SBATCH --time=${time_limit}
-#SBATCH --nodes=${nodes}
-#SBATCH --ntasks=${mpi_procs}
-#SBATCH --ntasks-per-node=${tasks_per_node}
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=${mem_per_node}G
-#SBATCH --constraint=${ARCHITECTURE}
-#SBATCH --account=${SLURM_ACCOUNT}
-#SBATCH --export=ALL
-
-# Load Spack environment for OpenMPI
-source ~/.bashrc
-romeo_load_x64cpu_env 2>/dev/null || true
-spack load openmpi@4.1.7%gcc@11.4.1 2>/dev/null || true
-
-# No OpenMP for v5
-export OMP_NUM_THREADS=1
-
-# Run benchmark
-echo "=== G${order} v5 Pure MPI - ${nodes} nodes, ${mpi_procs} procs ==="
-cd ~/golomb
-srun ./build/golomb_v5 ${order} --csv results/romeo/${job_name}.csv
-SLURM_EOF
-
-    chmod +x "$job_file"
-    JOB_COUNT=$((JOB_COUNT + 1))
-}
-
-# =============================================================================
 # Main Generation Logic
 # =============================================================================
 
@@ -306,48 +257,6 @@ for order in 11 12 13 14; do
 done
 echo ""
 
-# -----------------------------------------------------------------------------
-# v5: Pure MPI (no OpenMP)
-# -----------------------------------------------------------------------------
-echo "--- v5: Pure MPI ---"
-
-# 1 node, 8 procs (G8-G11)
-for order in 8 9 10 11; do
-    generate_v5_job $order 8 1
-    echo "  mpi_G${order}_v5_n1_p8.slurm"
-done
-
-# 1 node, 16 procs (G8-G11)
-for order in 8 9 10 11; do
-    generate_v5_job $order 16 1
-    echo "  mpi_G${order}_v5_n1_p16.slurm"
-done
-
-# 1 node, 32 procs (G8-G12)
-for order in 8 9 10 11 12; do
-    generate_v5_job $order 32 1
-    echo "  mpi_G${order}_v5_n1_p32.slurm"
-done
-
-# 2 nodes, 64 procs (G8-G12)
-for order in 8 9 10 11 12; do
-    generate_v5_job $order 64 2
-    echo "  mpi_G${order}_v5_n2_p64.slurm"
-done
-
-# 4 nodes, 128 procs (G9-G13)
-for order in 9 10 11 12 13; do
-    generate_v5_job $order 128 4
-    echo "  mpi_G${order}_v5_n4_p128.slurm"
-done
-
-# 8 nodes, 256 procs (G10-G13)
-for order in 10 11 12 13; do
-    generate_v5_job $order 256 8
-    echo "  mpi_G${order}_v5_n8_p256.slurm"
-done
-echo ""
-
 # =============================================================================
 # Summary
 # =============================================================================
@@ -360,12 +269,10 @@ v1_count=$(ls -1 ${JOBS_DIR}/seq_*_v1_*.slurm 2>/dev/null | wc -l)
 v2_count=$(ls -1 ${JOBS_DIR}/seq_*_v2_*.slurm 2>/dev/null | wc -l)
 v3_count=$(ls -1 ${JOBS_DIR}/mpi_*_v3_*.slurm 2>/dev/null | wc -l)
 v4_count=$(ls -1 ${JOBS_DIR}/mpi_*_v4_*.slurm 2>/dev/null | wc -l)
-v5_count=$(ls -1 ${JOBS_DIR}/mpi_*_v5_*.slurm 2>/dev/null | wc -l)
 echo "  v1 (Sequential):     $v1_count jobs"
 echo "  v2 (OpenMP):         $v2_count jobs"
 echo "  v3 (Hybrid MPI+OMP): $v3_count jobs"
 echo "  v4 (Hypercube):      $v4_count jobs"
-echo "  v5 (Pure MPI):       $v5_count jobs"
 echo ""
 echo "Jobs are in: ${JOBS_DIR}/"
 echo ""

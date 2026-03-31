@@ -21,6 +21,7 @@
 #include "golomb.hpp"
 #include <vector>
 #include <bitset>
+#include <iostream>
 
 /**
  * Compute a greedy Golomb ruler solution.
@@ -73,6 +74,10 @@ inline std::vector<int> computeGreedySolution(int order, DiffContainer& diffs) {
 
         // If we reached the safety limit, stop building the ruler
         if (pos >= maxPos) {
+            std::cerr << "Warning: greedy heuristic reached safety limit (maxPos="
+                      << maxPos << ") for order " << order
+                      << ". Only placed " << static_cast<int>(marks.size())
+                      << "/" << order << " marks.\n";
             break;
         }
     }

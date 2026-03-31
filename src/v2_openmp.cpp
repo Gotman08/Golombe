@@ -26,6 +26,9 @@
 #include "golomb/golomb.hpp"
 #include "golomb/greedy.hpp"
 #include "golomb/bitset256.hpp"
+#include "golomb/difference.hpp"
+#include "golomb/config.hpp"
+#include "golomb/csv_output.hpp"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -40,9 +43,6 @@
 
 #include <omp.h>
 
-#ifdef USE_AVX2
-#include <immintrin.h>
-#endif
 
 // ============================================================================
 // Hardware Detection
@@ -425,7 +425,7 @@ private:
         state.localNodesExplored++;
 
         // Bound caching: refresh every 16K nodes to reduce atomic contention
-        if (++state.checkCounter >= 16384) {
+        if (++state.checkCounter >= golomb::config::LOCAL_CACHE_REFRESH_INTERVAL) {
             state.cachedBound = globalBestLength.load(std::memory_order_relaxed);
             state.checkCounter = 0;
         }
@@ -460,15 +460,7 @@ private:
             int newDiffCount = 0;
             bool valid;
 
-#ifdef USE_AVX2
-            if (useSIMD && state.markCount >= 4) {
-                valid = checkDifferencesAVX2(state, pos, tempDiffs, newDiffCount);
-            } else {
-                valid = checkDifferencesScalar(state, pos, tempDiffs, newDiffCount);
-            }
-#else
-            valid = checkDifferencesScalar(state, pos, tempDiffs, newDiffCount);
-#endif
+            valid = golomb::checkDifferences(state, pos, tempDiffs, newDiffCount, useSIMD);
 
             if (valid) {
                 state.marks[state.markCount++] = pos;
@@ -488,87 +480,6 @@ private:
             }
         }
     }
-
-    /**
-     * @brief Checks differences using scalar (non-SIMD) implementation.
-     *
-     * Computes all differences between the candidate position and existing marks,
-     * checking for collisions with already-used differences.
-     *
-     * @param[in]  state     Current thread state with existing marks
-     * @param[in]  pos       Candidate position for the new mark
-     * @param[out] tempDiffs Array to store the new differences
-     * @param[out] diffCount Number of differences stored
-     *
-     * @return true if all differences are unique, false otherwise
-     */
-    inline bool checkDifferencesScalar(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
-        diffCount = 0;
-        for (int i = 0; i < state.markCount; ++i) {
-            int diff = pos - state.marks[i];
-            if (diff >= MAX_LENGTH || state.usedDiffs.test(diff)) {
-                return false;
-            }
-            tempDiffs[diffCount++] = diff;
-        }
-        return true;
-    }
-
-#ifdef USE_AVX2
-    /**
-     * @brief Checks differences using AVX2 SIMD vectorization.
-     *
-     * Optimized version that processes 8 marks at a time using AVX2.
-     * Uses vectorized collision detection for improved performance.
-     *
-     * @param[in]  state     Current thread state with existing marks
-     * @param[in]  pos       Candidate position for the new mark
-     * @param[out] tempDiffs Array to store the new differences
-     * @param[out] diffCount Number of differences stored
-     *
-     * @return true if all differences are unique, false otherwise
-     */
-    inline bool checkDifferencesAVX2(ThreadState& state, int pos, int* tempDiffs, int& diffCount) {
-        __m256i vpos = _mm256_set1_epi32(pos);
-
-        alignas(32) int allDiffs[MAX_ORDER];
-        int totalDiffs = 0;
-        int i = 0;
-
-        for (; i + 8 <= state.markCount; i += 8) {
-            __m256i vmarks = _mm256_loadu_si256((__m256i*)&state.marks[i]);
-            __m256i vdiffs = _mm256_sub_epi32(vpos, vmarks);
-            _mm256_storeu_si256((__m256i*)&allDiffs[totalDiffs], vdiffs);
-            totalDiffs += 8;
-        }
-
-        for (; i < state.markCount; ++i) {
-            allDiffs[totalDiffs++] = pos - state.marks[i];
-        }
-
-        BitSet256 checkMask;
-        checkMask.reset();
-
-        for (int j = 0; j < totalDiffs; ++j) {
-            int d = allDiffs[j];
-            if (d >= MAX_LENGTH) {
-                return false;
-            }
-            checkMask.set(d);
-        }
-
-        if (state.usedDiffs.hasCollisionAVX2(checkMask)) {
-            return false;
-        }
-
-        diffCount = totalDiffs;
-        for (int j = 0; j < totalDiffs; ++j) {
-            tempDiffs[j] = allDiffs[j];
-        }
-
-        return true;
-    }
-#endif
 
     /**
      * @brief Thread-safe update of the global best solution.
@@ -597,48 +508,6 @@ private:
         }
     }
 };
-
-// ============================================================================
-// CSV Output
-// ============================================================================
-
-/**
- * @brief Appends benchmark results to a CSV file.
- *
- * Creates the file with headers if it doesn't exist, otherwise appends
- * a new row with the benchmark results.
- *
- * @param filename Path to the CSV file
- * @param version  Solver version number (2 for OpenMP)
- * @param order    Order of the Golomb ruler solved
- * @param stats    Search statistics including time and solution
- * @param threads  Number of threads used
- */
-void appendResultCSV(const std::string& filename, int version, int order,
-                     const SearchStats& stats, int threads) {
-    std::ifstream checkFile(filename);
-    bool writeHeader = !checkFile.good();
-    checkFile.close();
-
-    std::ofstream file(filename, std::ios::app);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open " << filename << '\n';
-        return;
-    }
-
-    if (writeHeader) {
-        file << "version,order,threads,time_ms,nodes_explored,nodes_pruned,solution,length\n";
-    }
-
-    file << version << ","
-         << order << ","
-         << threads << ","
-         << std::fixed << std::setprecision(2) << stats.elapsedMs << ","
-         << stats.nodesExplored << ","
-         << stats.nodesPruned << ","
-         << "\"" << stats.bestSolution.toString() << "\","
-         << stats.bestSolution.length << '\n';
-}
 
 // ============================================================================
 // Main
@@ -788,7 +657,7 @@ int main(int argc, char* argv[]) {
                       << "  " << stats.bestSolution.toString() << '\n';
 
             if (!csvFile.empty()) {
-                appendResultCSV(csvFile, 2, order, stats, numThreads);
+                golomb::appendResultCSV(csvFile, 2, order, stats, numThreads);
             }
         }
     } else {
@@ -812,7 +681,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (!csvFile.empty()) {
-            appendResultCSV(csvFile, 2, maxOrder, stats, numThreads);
+            golomb::appendResultCSV(csvFile, 2, maxOrder, stats, numThreads);
             std::cout << "Results saved to " << csvFile << '\n';
         }
     }

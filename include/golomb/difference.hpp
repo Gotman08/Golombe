@@ -20,6 +20,7 @@
 
 #include "golomb.hpp"
 #include "bitset256.hpp"
+#include "config.hpp"
 
 #ifdef USE_AVX2
 #include <immintrin.h>
@@ -71,7 +72,7 @@ inline bool checkDifferencesAVX2(StateType& state, int pos, int* tempDiffs, int&
     __m256i vpos = _mm256_set1_epi32(pos);
 
     // Phase 1: Calculate all differences using AVX2
-    alignas(32) int allDiffs[MAX_ORDER];
+    alignas(32) int allDiffs[MAX_ORDER + 8];  // +8 padding for AVX2 stores
     int totalDiffs = 0;
     int i = 0;
 
@@ -128,7 +129,7 @@ inline bool checkDifferencesAVX2(StateType& state, int pos, int* tempDiffs, int&
 template<typename StateType>
 [[gnu::always_inline]]
 inline bool checkDifferences(StateType& state, int pos, int* tempDiffs, int& diffCount, bool useAVX2 = true) {
-    if (useAVX2 && state.markCount >= 4) {
+    if (useAVX2 && state.markCount >= golomb::config::AVX2_MIN_MARKS) {
         return checkDifferencesAVX2(state, pos, tempDiffs, diffCount);
     }
     return checkDifferencesScalar(state, pos, tempDiffs, diffCount);
